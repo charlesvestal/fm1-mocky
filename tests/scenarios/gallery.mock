@@ -1,0 +1,107 @@
+# The gallery end to end: pictures sent as the web page sends them (tests/host/mock_test.mjs writes
+# them), stepping, keys, SAVE, errors, persistence, a full gallery, slideshow, clearing.
+expect welcome 1
+expect count 0
+shot 00-welcome.png
+
+send build/host/pics/ui.syx
+expect count 1
+expect cur 0
+expect welcome 0
+expect screen build/host/pics/ui.raw
+shot 01-ui.png
+send build/host/pics/second.syx
+expect count 2
+expect cur 1
+expect screen build/host/pics/second.raw
+
+# stepping: OCT- / OCT+, the encoders, the white keys; a note on the picture, then the picture again
+tap OCT-
+expect cur 0
+expect note 1 / 2
+shot 02-note.png
+wait 1500
+expect note -
+expect screen build/host/pics/ui.raw
+tapkey w1
+expect cur 1
+turn SELECT 1
+expect cur 0
+turn K2 -3
+expect cur 1
+tapkey w5
+expect note NO PICTURE 6
+tap HOME
+shot 03-home.png
+
+# a picture sent but not kept: SAVE keeps it
+send build/host/pics/gradient-live.syx
+expect count 2
+expect cur -1
+expect live 1
+expect screen build/host/pics/gradient.raw
+tap SAVE
+expect count 3
+expect cur 2
+expect live 0
+expect note KEPT AS 3
+tap SAVE
+expect note ALREADY KEPT
+
+# refused: a wrong CRC, a picture cut short, one that is not 240 x 240, a picture that is not there
+send build/host/pics/badcrc.syx 2
+send build/host/pics/short.syx 6
+send build/host/pics/baddata.syx 3
+send build/host/pics/show9.syx 6
+expect count 3
+wait 1500
+expect screen build/host/pics/gradient.raw
+send build/host/pics/show0.syx
+expect cur 0
+expect screen build/host/pics/ui.raw
+send build/host/pics/info.syx
+
+# remembered across a restart: the gallery and the picture shown
+tapkey w2
+wait 3500
+reboot
+expect count 3
+expect cur 2
+expect screen build/host/pics/gradient.raw
+
+# slideshow: PLAY, KNOB 4 sets the pace
+tap PLAY
+expect slideshow 1
+turn K4 -1
+expect note SLIDESHOW  EVERY 2 S
+wait 2100
+expect cur 0
+wait 2000
+expect cur 1
+tap PLAY
+expect slideshow 0
+
+# a full gallery: two noisy pictures fit (116 KiB each), the third is shown but not kept
+send build/host/pics/noise.syx
+send build/host/pics/noise.syx
+expect count 5
+send build/host/pics/noise.syx 4
+expect count 5
+expect live 1
+expect screen build/host/pics/noise.raw
+tap SAVE
+expect note GALLERY FULL
+shot 04-full.png
+
+# clearing: the gallery goes, the live picture stays on the screen; after a restart, the welcome page
+send build/host/pics/clear.syx
+expect count 0
+expect screen build/host/pics/noise.raw
+reboot
+expect count 0
+expect welcome 1
+send build/host/pics/second.syx
+expect count 1
+expect cur 0
+reboot
+expect screen build/host/pics/second.raw
