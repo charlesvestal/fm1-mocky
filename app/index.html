@@ -1,0 +1,468 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Mocky: send a picture to the FM-1's screen (240 x 240), over USB MIDI (Web MIDI, SysEx).
+     The protocol and the picture coder are web/mocky.js; the firmware side, firmware/src/app/mock.c. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Send pictures · Mocky</title>
+<style>
+  /* --dim, --coral, --teal and --bad are darker than FoMni's for 4.5:1 on the cream and the panel (WCAG AA);
+     --on-coral: text on a coral button (dark on the lighter coral of the dark theme) */
+  :root { --bg: #faf4e8; --panel: #ece4d4; --line: #d8cdba; --fg: #48392f; --dim: #6e5d4c;
+          --coral: #b5502a; --teal: #1c7a71; --bad: #b0372f; --on-coral: #fff; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #1c1814; --panel: #2a241e; --line: #3d342b; --fg: #f2e8d8;
+                                     --dim: #b3a28e; --coral: #f28a5a; --teal: #4cc2b5; --bad: #ec6a5f; --on-coral: #1c1814; }
+  }
+  :root[data-theme="dark"] { --bg: #1c1814; --panel: #2a241e; --line: #3d342b; --fg: #f2e8d8;
+                             --dim: #b3a28e; --coral: #f28a5a; --teal: #4cc2b5; --bad: #ec6a5f; --on-coral: #1c1814; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 16px 48px; }
+  header { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  h1 { font-size: 26px; font-weight: 650; margin: 0; color: var(--coral); }
+  h1 + span { color: var(--dim); }
+  .conn { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex: none; }
+  .dot.on { background: var(--teal); }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+  @media (max-width: 720px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .screen { background: #111; border-radius: 22px; padding: 18px; width: 100%; max-width: 516px; }
+  .screen canvas { display: block; width: 100%; aspect-ratio: 1; image-rendering: pixelated; border-radius: 2px;
+                   background: #000; }
+  .drop { margin-top: 14px; border: 2px dashed var(--dim); border-radius: 14px; padding: 18px; text-align: center;
+          color: var(--dim); cursor: pointer; transition: border-color .15s, background .15s; }
+  .drop.over { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 8%, transparent); }
+  .drop b { color: var(--fg); font-weight: 600; }
+  .drop button.link { background: none; color: var(--fg); padding: 0; border-radius: 0; text-decoration: underline; }
+  .need { font-size: 14px; color: var(--dim); margin: -12px 0 20px; }
+  section { background: var(--panel); border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; }
+  h2 { font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--dim);
+       margin: 0 0 10px; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+  .row > .k { width: 84px; color: var(--dim); }
+  .seg { display: inline-flex; border-radius: 999px; background: var(--bg); padding: 3px; }
+  .seg button { background: none; color: var(--fg); padding: 4px 12px; }
+  .seg button.on { background: var(--fg); color: var(--bg); }
+  button { font: inherit; background: var(--coral); color: var(--on-coral); border: 0; border-radius: 999px; padding: 8px 20px;
+           cursor: pointer; }
+  button.quiet { background: var(--bg); color: var(--fg); }
+  button.danger { background: var(--bg); color: var(--bad); }
+  button.danger.armed { background: var(--bad); color: var(--on-coral); }
+  :focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+  .seg button:focus-visible { outline-offset: 0; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { .drop { transition: none; } }
+  button:disabled, button[aria-disabled="true"] { opacity: .35; cursor: default; }
+  input[type=color] { width: 34px; height: 26px; border: 0; padding: 0; background: none; cursor: pointer; }
+  input[type=checkbox] { accent-color: var(--teal); width: 16px; height: 16px; margin: 0; }
+  .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+  progress { width: 100%; height: 6px; accent-color: var(--teal); }
+  #status { min-height: 1.5em; margin: 8px 0 0; }
+  #alert { color: var(--bad); font-weight: 600; margin: 4px 0 0; }
+  #alert:empty { display: none; }
+  .small { font-size: 13px; color: var(--dim); }
+  .big { font-size: 22px; font-weight: 600; }
+  a { color: inherit; }
+  kbd { white-space: nowrap; font: 12px ui-monospace, Menlo, monospace; background: var(--bg); border-radius: 4px; padding: 1px 5px; }
+  footer { margin-top: 28px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Mocky</h1><span>pictures for the FM-1's screen</span>
+    <div class="conn"><span class="dot" id="dot" aria-hidden="true"></span><span id="conn" role="status">Not connected</span>
+      <button id="connect">Connect</button></div>
+  </header>
+  <p class="need" id="need">To send, you need Chrome or Edge, and the FM-1 plugged straight into the computer by USB, running
+    Mocky. Connect asks the browser for MIDI access: allow it (with SysEx).</p>
+
+  <div class="grid">
+    <div>
+      <div class="screen"><canvas id="preview" width="240" height="240" role="img"
+        aria-label="Preview: Mocky's welcome picture, drop a picture to see it here"></canvas></div>
+      <div class="drop" id="drop"><b>Drop pictures here</b>, <button type="button" class="link" id="choose">choose files</button>
+        or paste with <kbd>⌘V</kbd> or <kbd>Ctrl+V</kbd><br>
+        <span class="small">PNG, JPEG, GIF, WebP or SVG. Several at once are sent in order.</span></div>
+      <input type="file" id="file" accept="image/*" multiple hidden aria-label="Pictures to send">
+    </div>
+
+    <div>
+      <section>
+        <h2>Picture</h2>
+        <div class="row"><span class="k" id="fitk">Size</span>
+          <div class="seg" id="fit" role="group" aria-labelledby="fitk">
+            <button data-v="contain" class="on" aria-pressed="true">Fit</button><button data-v="cover" aria-pressed="false">Fill</button>
+            <button data-v="stretch" aria-pressed="false">Stretch</button><button data-v="none" aria-pressed="false">1:1</button>
+          </div></div>
+        <div class="row"><label class="k" for="bg">Behind it</label><input type="color" id="bg" value="#000000" aria-describedby="bgnote">
+          <span class="small" id="bgnote">where the picture does not reach</span></div>
+        <div class="row"><span class="k">Colour</span>
+          <label class="check"><input type="checkbox" id="dither"> Dither (for photos and gradients)</label></div>
+        <p class="small" id="meta">No picture yet.</p>
+      </section>
+
+      <section>
+        <h2>Send</h2>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="keep" checked> Keep it on the FM-1</label></div>
+        <div class="row"><button id="send" aria-disabled="true">Send to the FM-1</button>
+          <button class="quiet" id="watch" aria-disabled="true" aria-describedby="watchnote">Watch a file…</button></div>
+        <p class="small" id="watchnote">Watch a file sends it again, not kept, each time it changes on disk (Chrome and Edge).</p>
+        <progress id="bar" max="1" value="0" aria-label="Sending"></progress>
+        <p id="status" role="status"></p>
+        <p id="alert" role="alert"></p>
+      </section>
+
+      <section>
+        <h2>On the FM-1</h2>
+        <div class="row"><span class="big" id="count">–</span>
+          <span class="small" id="free"></span></div>
+        <div class="row"><button class="quiet" id="prev" aria-disabled="true"><span aria-hidden="true">‹ </span>Previous</button>
+          <button class="quiet" id="next" aria-disabled="true">Next<span aria-hidden="true"> ›</span></button>
+          <button class="danger" id="clear" aria-disabled="true">Clear all</button></div>
+        <p class="small">On the FM-1: the white keys show pictures 1–16, OCT− / OCT+ and the knobs step through
+          them, PLAY runs a slideshow (KNOB 4 sets the pace), SAVE keeps a picture sent without
+          “Keep”, HOME tells you which one it is.</p>
+      </section>
+    </div>
+  </div>
+
+  <footer class="small">
+    <p>Needs the Mocky firmware on the FM-1 (<a href="../install/">install it</a>), and Chrome or Edge (Web MIDI
+      with SysEx). Plug the FM-1 straight into the computer. <a href="../">About Mocky</a> ·
+      <a href="https://github.com/charlesvestal/fm1-mocky">source</a></p>
+    <p>Mocky is built on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank"
+      rel="noopener">Hügelton Instruments<span class="vh"> (opens in a new tab)</span></a>, by way of FoMni-1. GPL-3.0.
+      M-VAVE and FM-1 are trademarks of their respective owners.</p>
+  </footer>
+</main>
+
+<script type="module">
+import { W, H, to565, from565, encode, Device, findPorts } from './mocky.js';
+
+const $ = (id) => document.getElementById(id);
+const pv = $('preview'), pctx = pv.getContext('2d');
+const state = { fit: 'contain', src: null, name: '', px: null, coded: null, dev: null, access: null,
+                busy: false, info: null, watch: null };
+
+// ------------------------------------------------------------- picture
+function stepDown(img, w, h) {                 // halve while more than 2x too big: smooth downscaling
+    let c = img, cw = img.width, ch = img.height;
+    while (cw / 2 >= w && ch / 2 >= h) {
+        const n = new OffscreenCanvas(Math.round(cw / 2), Math.round(ch / 2)), x = n.getContext('2d');
+        x.imageSmoothingQuality = 'high';
+        x.drawImage(c, 0, 0, n.width, n.height);
+        c = n; cw = n.width; ch = n.height;
+    }
+    return c;
+}
+
+function render() {
+    if (!state.src) return;
+    const c = new OffscreenCanvas(W, H), x = c.getContext('2d', { willReadFrequently: true });
+    const s = state.src, sw = s.width, sh = s.height;
+    x.fillStyle = $('bg').value;
+    x.fillRect(0, 0, W, H);
+    let dw = W, dh = H;
+    if (state.fit === 'contain' || state.fit === 'cover') {
+        const k = (state.fit === 'contain' ? Math.min : Math.max)(W / sw, H / sh);
+        dw = sw * k; dh = sh * k;
+    } else if (state.fit === 'none') {
+        dw = sw; dh = sh;
+    }
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(stepDown(s, dw, dh), (W - dw) / 2, (H - dh) / 2, dw, dh);
+    state.px = to565(x.getImageData(0, 0, W, H).data, $('dither').checked);
+    state.coded = encode(state.px);
+    const img = new ImageData(from565(state.px), W, H);
+    pctx.putImageData(img, 0, 0);
+    const kb = (state.coded.length / 1024).toFixed(state.coded.length < 10240 ? 1 : 0);
+    $('meta').textContent = `${state.name}: ${sw} × ${sh}${sw === W && sh === H ? ' (exactly the screen)' : ''}, ` +
+        `${kb} KB to send.`;
+    const FIT = { contain: 'fitted', cover: 'filling the screen, cropped', stretch: 'stretched', none: 'at 1 to 1' };
+    pv.setAttribute('aria-label', `Preview of ${state.name} as the FM-1 will show it, ${FIT[state.fit]}`);
+    buttons();
+}
+
+async function load(blob, name) {
+    try {
+        state.src = await createImageBitmap(blob);
+    } catch {
+        const url = URL.createObjectURL(blob);            // SVG: through an <img>
+        const im = new Image();
+        im.src = url;
+        await im.decode();
+        state.src = await createImageBitmap(im, { resizeWidth: im.naturalWidth || W, resizeHeight: im.naturalHeight || H });
+        URL.revokeObjectURL(url);
+    }
+    state.name = name || 'pasted picture';
+    render();
+}
+
+// ------------------------------------------------------------- the FM-1
+// what happened, in words: #status (role=status, polite) for progress and results, #alert (role=alert) for a
+// failure. The same text is not set twice, so a screen reader hears each message once.
+function say(t, bad = false) {
+    const on = $(bad ? 'alert' : 'status'), off = $(bad ? 'status' : 'alert');
+    off.textContent = '';
+    if (on.textContent !== t) on.textContent = t;
+}
+// sending progress: the bar every block, the words at most every 2 s and in tens of percent
+let told = { t: 0, p: -1 };
+function progress(f, what) {
+    $('bar').value = f;
+    const p = Math.floor(f * 10) * 10, now = performance.now();
+    if (p > told.p && now - told.t >= 2000 && p > 0 && p < 100) {
+        told = { t: now, p };
+        say(`Sending ${what}, ${p} percent`);
+    }
+}
+
+const off = (id, v) => $(id).setAttribute('aria-disabled', String(!!v));
+const usable = (id) => $(id).getAttribute('aria-disabled') !== 'true';
+function buttons() {
+    const on = !!state.dev, idle = on && !state.busy;
+    // aria-disabled, not disabled: a button that can't be used now keeps its place in the tab order and
+    // keeps the focus (a disabled one drops it to the page while a picture is sent, or after Clear all)
+    off('send', !idle || !state.coded);
+    off('watch', !idle && !state.watch || !('showOpenFilePicker' in window));
+    const n = state.info ? state.info.count : 0;
+    off('prev', !idle || n < 1);
+    off('next', !idle || n < 1);
+    off('clear', !idle || n < 1);
+    $('dot').classList.toggle('on', on);
+    // the background colour only shows with Fit and 1:1
+    $('bg').disabled = !(state.fit === 'contain' || state.fit === 'none');
+    $('bgnote').textContent = $('bg').disabled ? 'only with Fit and 1:1: Fill and Stretch cover the screen'
+                                               : 'where the picture does not reach';
+    if (on && !$('connect').hidden && document.activeElement === $('connect')) $('choose').focus();  // the next step
+    $('connect').hidden = on;
+}
+
+function showInfo(i) {
+    state.info = i;
+    if (!i) {
+        $('count').textContent = '–';
+        $('free').textContent = '';
+    } else {
+        $('count').textContent = i.count === 1 ? '1 picture' : `${i.count} pictures`;
+        $('free').textContent = `${i.cur < i.count ? `showing ${i.cur + 1}, ` : ''}${Math.floor(i.free / 1024)} KB free` +
+            (i.count >= i.max ? ' (no more slots)' : '');
+    }
+    buttons();
+}
+
+function attach() {
+    const p = state.access && findPorts(state.access);
+    if (p && state.dev && state.dev.input === p.input && state.dev.output === p.output) return;
+    if (state.dev) state.dev.close();
+    state.dev = p ? new Device(p.input, p.output) : null;
+    $('conn').textContent = p ? p.output.name : state.access ? 'No FM-1 found: plug it in' : 'Not connected';
+    showInfo(null);
+    if (state.dev) refresh();
+}
+
+async function refresh() {
+    try {
+        const i = await state.dev.info();
+        showInfo(i);
+    } catch (e) {
+        $('conn').textContent = 'The FM-1 does not answer: is Mocky installed on it?';
+        showInfo(null);
+    }
+}
+
+async function connect() {
+    if (!navigator.requestMIDIAccess) {
+        say('This browser has no Web MIDI: use Chrome or Edge.', true);
+        return;
+    }
+    try {
+        state.access = await navigator.requestMIDIAccess({ sysex: true });
+    } catch {
+        say('MIDI access was refused. Allow MIDI (with SysEx) for this page and try again.', true);
+        return;
+    }
+    state.access.onstatechange = () => setTimeout(attach, 300);
+    attach();
+}
+
+async function job(fn) {
+    if (state.busy || !state.dev) return;
+    state.busy = true;
+    buttons();
+    try {
+        await fn();
+    } catch (e) {
+        say(e.message || String(e), true);
+    } finally {
+        state.busy = false;
+        $('bar').value = 0;
+        buttons();
+    }
+}
+
+async function sendCurrent(keep) {
+    const t0 = performance.now();
+    const coded = state.coded;
+    say(`Sending ${state.name}…`);
+    told = { t: performance.now(), p: 0 };
+    const name = state.name;
+    const r = await state.dev.send(coded, keep, (f) => progress(f, name));
+    const s = ((performance.now() - t0) / 1000).toFixed(1);
+    say(keep ? `${state.name} is picture ${r.cur + 1} of ${r.count} (${s} s).` : `${state.name} is on the screen, not kept (${s} s).`);
+    await refresh();
+}
+
+let queue = [];
+async function sendQueue() {                   // several files dropped: each one rendered and sent, kept
+    await job(async () => {
+        while (queue.length) {
+            const f = queue.shift();
+            await load(f, f.name);
+            await sendCurrent($('keep').checked);
+        }
+    });
+}
+
+async function filesIn(list) {
+    const files = [...list].filter((f) => f.type.startsWith('image/'));
+    if (!files.length) return;
+    if (files.length > 1 && state.dev) {
+        queue = files;
+        sendQueue();
+    } else {
+        await load(files[0], files[0].name);
+        if (files.length > 1) say(`${files.length} pictures: connect the FM-1 to send them all.`);
+        else say(state.dev ? `${state.name} is ready: Send to the FM-1.` : `${state.name} is in the preview. Connect the FM-1 to send it.`);
+    }
+}
+
+// watch a file on disk (File System Access API): sent again, not kept, each time it changes
+async function watch() {
+    if (state.watch) {
+        clearInterval(state.watch.timer);
+        state.watch = null;
+        $('watch').textContent = 'Watch a file…';
+        say('Stopped watching.');
+        buttons();
+        return;
+    }
+    let h;
+    try {
+        [h] = await window.showOpenFilePicker({ types: [{ description: 'Pictures', accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'] } }] });
+    } catch {
+        return;
+    }
+    state.watch = { h, last: 0, timer: 0 };
+    $('watch').textContent = `Stop watching ${h.name}`;
+    const tick = async () => {
+        if (!state.watch || state.busy) return;
+        try {
+            const f = await h.getFile();
+            if (f.lastModified === state.watch.last) return;
+            state.watch.last = f.lastModified;
+            await load(f, f.name);
+            if (state.dev) await job(() => sendCurrent(false));
+        } catch (e) {
+            say(`Watching ${h.name}: ${e.message}`, true);
+        }
+    };
+    state.watch.timer = setInterval(tick, 700);
+    tick();
+    buttons();
+}
+
+// ------------------------------------------------------------- wiring
+$('connect').onclick = connect;
+$('send').onclick = () => usable('send') && job(() => sendCurrent($('keep').checked));
+$('watch').onclick = () => usable('watch') && watch();
+$('prev').onclick = () => usable('prev') && job(async () => {
+    const i = state.info, n = i.count;
+    await state.dev.show(((i.cur < n ? i.cur : 0) - 1 + n) % n);
+    await refresh();
+    sayShowing();
+});
+$('next').onclick = () => usable('next') && job(async () => {
+    const i = state.info, n = i.count;
+    await state.dev.show(i.cur < n ? (i.cur + 1) % n : 0);
+    await refresh();
+    sayShowing();
+});
+function sayShowing() {
+    const i = state.info;
+    if (i && i.cur < i.count) say(`Showing picture ${i.cur + 1} of ${i.count}.`);
+}
+// Clear all asks first: pressed again within 10 s, while it still has focus, it clears
+let armT = 0;
+const disarm = () => {
+    const b = $('clear');
+    clearTimeout(armT);
+    if (!b.classList.contains('armed')) return;
+    b.classList.remove('armed');
+    b.textContent = 'Clear all';
+};
+$('clear').onblur = disarm;
+$('clear').onclick = () => {
+    const b = $('clear');
+    if (!usable('clear')) return;
+    if (!b.classList.contains('armed')) {
+        b.classList.add('armed');
+        b.textContent = 'Clear them all?';
+        say('Press again to clear every picture on the FM-1.');
+        armT = setTimeout(disarm, 10000);
+        return;
+    }
+    disarm();
+    job(async () => {
+        say('Clearing…');
+        await state.dev.clear();
+        say('The gallery is empty.');
+        await refresh();
+    });
+};
+for (const b of $('fit').querySelectorAll('button'))
+    b.onclick = () => {
+        state.fit = b.dataset.v;
+        $('fit').querySelectorAll('button').forEach((x) => {
+            x.classList.toggle('on', x === b);
+            x.setAttribute('aria-pressed', String(x === b));
+        });
+        buttons();
+        render();
+    };
+$('bg').oninput = render;
+$('dither').onchange = render;
+const drop = $('drop');
+drop.onclick = (e) => { if (e.target !== $('choose')) $('file').click(); };   // the whole box, for the mouse
+$('choose').onclick = () => $('file').click();
+$('file').onchange = (e) => { filesIn(e.target.files); e.target.value = ''; };
+for (const ev of ['dragenter', 'dragover']) document.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); });
+for (const ev of ['dragleave', 'drop']) document.addEventListener(ev, (e) => { e.preventDefault(); if (ev === 'drop' || !e.relatedTarget) drop.classList.remove('over'); });
+document.addEventListener('drop', (e) => filesIn(e.dataTransfer.files));
+document.addEventListener('paste', (e) => {
+    const f = [...e.clipboardData.items].find((i) => i.type.startsWith('image/'));
+    if (f) load(f.getAsFile(), 'pasted picture').then(() => say(state.dev ? 'The pasted picture is ready: Send to the FM-1.' : 'The pasted picture is in the preview. Connect the FM-1 to send it.'));
+});
+
+// the welcome picture: what the FM-1 shows with nothing kept
+pctx.fillStyle = '#faf4e8';
+pctx.fillRect(0, 0, W, H);
+pctx.textAlign = 'center';
+pctx.fillStyle = '#f27848';
+pctx.font = '600 30px -apple-system, Helvetica, sans-serif';
+pctx.fillText('Mocky', 120, 108);
+pctx.fillStyle = '#968876';
+pctx.font = '14px -apple-system, Helvetica, sans-serif';
+pctx.fillText('drop a picture to see it here', 120, 138);
+buttons();
+// MIDI permission already granted: connect without a click
+navigator.permissions?.query({ name: 'midi', sysex: true }).then((p) => { if (p.state === 'granted') connect(); }).catch(() => {});
+</script>
+</body>
+</html>
