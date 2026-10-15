@@ -6,16 +6,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mocky for the FM-1</title>
+<title>Send pictures · Mocky</title>
 <style>
-  :root { --bg: #faf4e8; --panel: #ece4d4; --line: #d8cdba; --fg: #48392f; --dim: #8a7764;
-          --coral: #e0683a; --teal: #26a69a; --bad: #c8423a; }
+  /* --dim, --coral, --teal and --bad are darker than FoMni's for 4.5:1 on the cream and the panel (WCAG AA);
+     --on-coral: text on a coral button (dark on the lighter coral of the dark theme) */
+  :root { --bg: #faf4e8; --panel: #ece4d4; --line: #d8cdba; --fg: #48392f; --dim: #6e5d4c;
+          --coral: #b5502a; --teal: #1c7a71; --bad: #b0372f; --on-coral: #fff; }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) { --bg: #1c1814; --panel: #2a241e; --line: #3d342b; --fg: #f2e8d8;
-                                     --dim: #b3a28e; --coral: #f28a5a; --teal: #4cc2b5; --bad: #ec6a5f; }
+                                     --dim: #b3a28e; --coral: #f28a5a; --teal: #4cc2b5; --bad: #ec6a5f; --on-coral: #1c1814; }
   }
   :root[data-theme="dark"] { --bg: #1c1814; --panel: #2a241e; --line: #3d342b; --fg: #f2e8d8;
-                             --dim: #b3a28e; --coral: #f28a5a; --teal: #4cc2b5; --bad: #ec6a5f; }
+                             --dim: #b3a28e; --coral: #f28a5a; --teal: #4cc2b5; --bad: #ec6a5f; --on-coral: #1c1814; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg);
          font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
@@ -31,10 +33,12 @@
   .screen { background: #111; border-radius: 22px; padding: 18px; width: 100%; max-width: 516px; }
   .screen canvas { display: block; width: 100%; aspect-ratio: 1; image-rendering: pixelated; border-radius: 2px;
                    background: #000; }
-  .drop { margin-top: 14px; border: 2px dashed var(--line); border-radius: 14px; padding: 18px; text-align: center;
+  .drop { margin-top: 14px; border: 2px dashed var(--dim); border-radius: 14px; padding: 18px; text-align: center;
           color: var(--dim); cursor: pointer; transition: border-color .15s, background .15s; }
   .drop.over { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 8%, transparent); }
   .drop b { color: var(--fg); font-weight: 600; }
+  .drop button.link { background: none; color: var(--fg); padding: 0; border-radius: 0; text-decoration: underline; }
+  .need { font-size: 14px; color: var(--dim); margin: -12px 0 20px; }
   section { background: var(--panel); border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; }
   h2 { font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--dim);
        margin: 0 0 10px; }
@@ -43,22 +47,27 @@
   .seg { display: inline-flex; border-radius: 999px; background: var(--bg); padding: 3px; }
   .seg button { background: none; color: var(--fg); padding: 4px 12px; }
   .seg button.on { background: var(--fg); color: var(--bg); }
-  button { font: inherit; background: var(--coral); color: #fff; border: 0; border-radius: 999px; padding: 8px 20px;
+  button { font: inherit; background: var(--coral); color: var(--on-coral); border: 0; border-radius: 999px; padding: 8px 20px;
            cursor: pointer; }
   button.quiet { background: var(--bg); color: var(--fg); }
   button.danger { background: var(--bg); color: var(--bad); }
-  button.danger.armed { background: var(--bad); color: #fff; }
-  button:disabled { opacity: .35; cursor: default; }
+  button.danger.armed { background: var(--bad); color: var(--on-coral); }
+  :focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+  .seg button:focus-visible { outline-offset: 0; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { .drop { transition: none; } }
+  button:disabled, button[aria-disabled="true"] { opacity: .35; cursor: default; }
   input[type=color] { width: 34px; height: 26px; border: 0; padding: 0; background: none; cursor: pointer; }
   input[type=checkbox] { accent-color: var(--teal); width: 16px; height: 16px; margin: 0; }
   .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
   progress { width: 100%; height: 6px; accent-color: var(--teal); }
   #status { min-height: 1.5em; margin: 8px 0 0; }
-  #status.bad { color: var(--bad); }
+  #alert { color: var(--bad); font-weight: 600; margin: 4px 0 0; }
+  #alert:empty { display: none; }
   .small { font-size: 13px; color: var(--dim); }
   .big { font-size: 22px; font-weight: 600; }
   a { color: inherit; }
-  kbd { font: 12px ui-monospace, Menlo, monospace; background: var(--bg); border-radius: 4px; padding: 1px 5px; }
+  kbd { white-space: nowrap; font: 12px ui-monospace, Menlo, monospace; background: var(--bg); border-radius: 4px; padding: 1px 5px; }
   footer { margin-top: 28px; }
 </style>
 </head>
@@ -66,29 +75,33 @@
 <main>
   <header>
     <h1>Mocky</h1><span>pictures for the FM-1's screen</span>
-    <div class="conn"><span class="dot" id="dot"></span><span id="conn">Not connected</span>
+    <div class="conn"><span class="dot" id="dot" aria-hidden="true"></span><span id="conn" role="status">Not connected</span>
       <button id="connect">Connect</button></div>
   </header>
+  <p class="need" id="need">To send, you need Chrome or Edge, and the FM-1 plugged straight into the computer by USB, running
+    Mocky. Connect asks the browser for MIDI access: allow it (with SysEx).</p>
 
   <div class="grid">
     <div>
-      <div class="screen"><canvas id="preview" width="240" height="240"></canvas></div>
-      <div class="drop" id="drop"><b>Drop pictures here</b>, <u>choose files</u> or paste with <kbd>⌘V</kbd><br>
+      <div class="screen"><canvas id="preview" width="240" height="240" role="img"
+        aria-label="Preview: Mocky's welcome picture, drop a picture to see it here"></canvas></div>
+      <div class="drop" id="drop"><b>Drop pictures here</b>, <button type="button" class="link" id="choose">choose files</button>
+        or paste with <kbd>⌘V</kbd> or <kbd>Ctrl+V</kbd><br>
         <span class="small">PNG, JPEG, GIF, WebP or SVG. Several at once are sent in order.</span></div>
-      <input type="file" id="file" accept="image/*" multiple hidden>
+      <input type="file" id="file" accept="image/*" multiple hidden aria-label="Pictures to send">
     </div>
 
     <div>
       <section>
         <h2>Picture</h2>
-        <div class="row"><label class="k">Size</label>
-          <div class="seg" id="fit">
-            <button data-v="contain" class="on">Fit</button><button data-v="cover">Fill</button>
-            <button data-v="stretch">Stretch</button><button data-v="none">1:1</button>
+        <div class="row"><span class="k" id="fitk">Size</span>
+          <div class="seg" id="fit" role="group" aria-labelledby="fitk">
+            <button data-v="contain" class="on" aria-pressed="true">Fit</button><button data-v="cover" aria-pressed="false">Fill</button>
+            <button data-v="stretch" aria-pressed="false">Stretch</button><button data-v="none" aria-pressed="false">1:1</button>
           </div></div>
-        <div class="row"><label class="k" for="bg">Behind it</label><input type="color" id="bg" value="#000000">
+        <div class="row"><label class="k" for="bg">Behind it</label><input type="color" id="bg" value="#000000" aria-describedby="bgnote">
           <span class="small" id="bgnote">where the picture does not reach</span></div>
-        <div class="row"><label class="k">Colour</label>
+        <div class="row"><span class="k">Colour</span>
           <label class="check"><input type="checkbox" id="dither"> Dither (for photos and gradients)</label></div>
         <p class="small" id="meta">No picture yet.</p>
       </section>
@@ -97,19 +110,21 @@
         <h2>Send</h2>
         <div class="row">
           <label class="check"><input type="checkbox" id="keep" checked> Keep it on the FM-1</label></div>
-        <div class="row"><button id="send" disabled>Send to the FM-1</button>
-          <button class="quiet" id="watch" disabled title="Chrome and Edge: sends the file again whenever it changes on disk">Watch a file…</button></div>
-        <progress id="bar" max="1" value="0"></progress>
-        <p id="status"></p>
+        <div class="row"><button id="send" aria-disabled="true">Send to the FM-1</button>
+          <button class="quiet" id="watch" aria-disabled="true" aria-describedby="watchnote">Watch a file…</button></div>
+        <p class="small" id="watchnote">Watch a file sends it again, not kept, each time it changes on disk (Chrome and Edge).</p>
+        <progress id="bar" max="1" value="0" aria-label="Sending"></progress>
+        <p id="status" role="status"></p>
+        <p id="alert" role="alert"></p>
       </section>
 
       <section>
         <h2>On the FM-1</h2>
         <div class="row"><span class="big" id="count">–</span>
           <span class="small" id="free"></span></div>
-        <div class="row"><button class="quiet" id="prev" disabled>‹ Previous</button>
-          <button class="quiet" id="next" disabled>Next ›</button>
-          <button class="danger" id="clear" disabled>Clear all</button></div>
+        <div class="row"><button class="quiet" id="prev" aria-disabled="true"><span aria-hidden="true">‹ </span>Previous</button>
+          <button class="quiet" id="next" aria-disabled="true">Next<span aria-hidden="true"> ›</span></button>
+          <button class="danger" id="clear" aria-disabled="true">Clear all</button></div>
         <p class="small">On the FM-1: the white keys show pictures 1–16, OCT− / OCT+ and the knobs step through
           them, PLAY runs a slideshow (KNOB 4 sets the pace), SAVE keeps a picture sent without
           “Keep”, HOME tells you which one it is.</p>
@@ -122,7 +137,7 @@
       with SysEx). Plug the FM-1 straight into the computer. <a href="../">About Mocky</a> ·
       <a href="https://github.com/charlesvestal/fm1-mocky">source</a></p>
     <p>Mocky is built on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank"
-      rel="noopener">Hügelton Instruments</a>, by way of FoMni-1. GPL-3.0.
+      rel="noopener">Hügelton Instruments<span class="vh"> (opens in a new tab)</span></a>, by way of FoMni-1. GPL-3.0.
       M-VAVE and FM-1 are trademarks of their respective owners.</p>
   </footer>
 </main>
@@ -169,7 +184,8 @@ function render() {
     const kb = (state.coded.length / 1024).toFixed(state.coded.length < 10240 ? 1 : 0);
     $('meta').textContent = `${state.name}: ${sw} × ${sh}${sw === W && sh === H ? ' (exactly the screen)' : ''}, ` +
         `${kb} KB to send.`;
-    $('bgnote').style.opacity = state.fit === 'contain' || state.fit === 'none' ? 1 : 0.4;
+    const FIT = { contain: 'fitted', cover: 'filling the screen, cropped', stretch: 'stretched', none: 'at 1 to 1' };
+    pv.setAttribute('aria-label', `Preview of ${state.name} as the FM-1 will show it, ${FIT[state.fit]}`);
     buttons();
 }
 
@@ -189,19 +205,42 @@ async function load(blob, name) {
 }
 
 // ------------------------------------------------------------- the FM-1
+// what happened, in words: #status (role=status, polite) for progress and results, #alert (role=alert) for a
+// failure. The same text is not set twice, so a screen reader hears each message once.
 function say(t, bad = false) {
-    $('status').textContent = t;
-    $('status').className = bad ? 'bad' : '';
+    const on = $(bad ? 'alert' : 'status'), off = $(bad ? 'status' : 'alert');
+    off.textContent = '';
+    if (on.textContent !== t) on.textContent = t;
+}
+// sending progress: the bar every block, the words at most every 2 s and in tens of percent
+let told = { t: 0, p: -1 };
+function progress(f, what) {
+    $('bar').value = f;
+    const p = Math.floor(f * 10) * 10, now = performance.now();
+    if (p > told.p && now - told.t >= 2000 && p > 0 && p < 100) {
+        told = { t: now, p };
+        say(`Sending ${what}, ${p} percent`);
+    }
 }
 
+const off = (id, v) => $(id).setAttribute('aria-disabled', String(!!v));
+const usable = (id) => $(id).getAttribute('aria-disabled') !== 'true';
 function buttons() {
     const on = !!state.dev, idle = on && !state.busy;
-    $('send').disabled = !idle || !state.coded;
-    $('watch').disabled = !idle && !state.watch || !('showOpenFilePicker' in window);
+    // aria-disabled, not disabled: a button that can't be used now keeps its place in the tab order and
+    // keeps the focus (a disabled one drops it to the page while a picture is sent, or after Clear all)
+    off('send', !idle || !state.coded);
+    off('watch', !idle && !state.watch || !('showOpenFilePicker' in window));
     const n = state.info ? state.info.count : 0;
-    $('prev').disabled = $('next').disabled = !idle || n < 1;
-    $('clear').disabled = !idle || n < 1;
+    off('prev', !idle || n < 1);
+    off('next', !idle || n < 1);
+    off('clear', !idle || n < 1);
     $('dot').classList.toggle('on', on);
+    // the background colour only shows with Fit and 1:1
+    $('bg').disabled = !(state.fit === 'contain' || state.fit === 'none');
+    $('bgnote').textContent = $('bg').disabled ? 'only with Fit and 1:1: Fill and Stretch cover the screen'
+                                               : 'where the picture does not reach';
+    if (on && !$('connect').hidden && document.activeElement === $('connect')) $('choose').focus();  // the next step
     $('connect').hidden = on;
 }
 
@@ -272,7 +311,9 @@ async function sendCurrent(keep) {
     const t0 = performance.now();
     const coded = state.coded;
     say(`Sending ${state.name}…`);
-    const r = await state.dev.send(coded, keep, (f) => { $('bar').value = f; });
+    told = { t: performance.now(), p: 0 };
+    const name = state.name;
+    const r = await state.dev.send(coded, keep, (f) => progress(f, name));
     const s = ((performance.now() - t0) / 1000).toFixed(1);
     say(keep ? `${state.name} is picture ${r.cur + 1} of ${r.count} (${s} s).` : `${state.name} is on the screen, not kept (${s} s).`);
     await refresh();
@@ -298,6 +339,7 @@ async function filesIn(list) {
     } else {
         await load(files[0], files[0].name);
         if (files.length > 1) say(`${files.length} pictures: connect the FM-1 to send them all.`);
+        else say(state.dev ? `${state.name} is ready: Send to the FM-1.` : `${state.name} is in the preview. Connect the FM-1 to send it.`);
     }
 }
 
@@ -338,30 +380,45 @@ async function watch() {
 
 // ------------------------------------------------------------- wiring
 $('connect').onclick = connect;
-$('send').onclick = () => job(() => sendCurrent($('keep').checked));
-$('watch').onclick = watch;
-$('prev').onclick = () => job(async () => {
+$('send').onclick = () => usable('send') && job(() => sendCurrent($('keep').checked));
+$('watch').onclick = () => usable('watch') && watch();
+$('prev').onclick = () => usable('prev') && job(async () => {
     const i = state.info, n = i.count;
     await state.dev.show(((i.cur < n ? i.cur : 0) - 1 + n) % n);
     await refresh();
+    sayShowing();
 });
-$('next').onclick = () => job(async () => {
+$('next').onclick = () => usable('next') && job(async () => {
     const i = state.info, n = i.count;
     await state.dev.show(i.cur < n ? (i.cur + 1) % n : 0);
     await refresh();
+    sayShowing();
 });
+function sayShowing() {
+    const i = state.info;
+    if (i && i.cur < i.count) say(`Showing picture ${i.cur + 1} of ${i.count}.`);
+}
+// Clear all asks first: pressed again within 10 s, while it still has focus, it clears
 let armT = 0;
+const disarm = () => {
+    const b = $('clear');
+    clearTimeout(armT);
+    if (!b.classList.contains('armed')) return;
+    b.classList.remove('armed');
+    b.textContent = 'Clear all';
+};
+$('clear').onblur = disarm;
 $('clear').onclick = () => {
     const b = $('clear');
+    if (!usable('clear')) return;
     if (!b.classList.contains('armed')) {
         b.classList.add('armed');
         b.textContent = 'Clear them all?';
-        armT = setTimeout(() => { b.classList.remove('armed'); b.textContent = 'Clear all'; }, 3000);
+        say('Press again to clear every picture on the FM-1.');
+        armT = setTimeout(disarm, 10000);
         return;
     }
-    clearTimeout(armT);
-    b.classList.remove('armed');
-    b.textContent = 'Clear all';
+    disarm();
     job(async () => {
         say('Clearing…');
         await state.dev.clear();
@@ -372,20 +429,25 @@ $('clear').onclick = () => {
 for (const b of $('fit').querySelectorAll('button'))
     b.onclick = () => {
         state.fit = b.dataset.v;
-        $('fit').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+        $('fit').querySelectorAll('button').forEach((x) => {
+            x.classList.toggle('on', x === b);
+            x.setAttribute('aria-pressed', String(x === b));
+        });
+        buttons();
         render();
     };
 $('bg').oninput = render;
 $('dither').onchange = render;
 const drop = $('drop');
-drop.onclick = () => $('file').click();
+drop.onclick = (e) => { if (e.target !== $('choose')) $('file').click(); };   // the whole box, for the mouse
+$('choose').onclick = () => $('file').click();
 $('file').onchange = (e) => { filesIn(e.target.files); e.target.value = ''; };
 for (const ev of ['dragenter', 'dragover']) document.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); });
 for (const ev of ['dragleave', 'drop']) document.addEventListener(ev, (e) => { e.preventDefault(); if (ev === 'drop' || !e.relatedTarget) drop.classList.remove('over'); });
 document.addEventListener('drop', (e) => filesIn(e.dataTransfer.files));
 document.addEventListener('paste', (e) => {
     const f = [...e.clipboardData.items].find((i) => i.type.startsWith('image/'));
-    if (f) load(f.getAsFile(), 'pasted picture');
+    if (f) load(f.getAsFile(), 'pasted picture').then(() => say(state.dev ? 'The pasted picture is ready: Send to the FM-1.' : 'The pasted picture is in the preview. Connect the FM-1 to send it.'));
 });
 
 // the welcome picture: what the FM-1 shows with nothing kept

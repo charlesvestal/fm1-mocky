@@ -7,22 +7,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mocky installer</title>
+<title>Install · Mocky</title>
 <style>
-  :root { --bg: #faf4e8; --fg: #48392f; --dim: #8a7764; --accent: #e0683a; }
+  /* --dim and --accent darker than FoMni's for 4.5:1 on the cream; --on-accent: text on an accent button */
+  :root { --bg: #faf4e8; --fg: #48392f; --dim: #6e5d4c; --accent: #b5502a; --on-accent: #fff; --bad: #b0372f; }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --bg: #1c1814; --fg: #f2e8d8; --dim: #b3a28e; --accent: #f28a5a; }
+    :root:not([data-theme="light"]) { --bg: #1c1814; --fg: #f2e8d8; --dim: #b3a28e; --accent: #f28a5a; --on-accent: #1c1814; --bad: #ec6a5f; }
   }
-  :root[data-theme="dark"] { --bg: #1c1814; --fg: #f2e8d8; --dim: #b3a28e; --accent: #f28a5a; }
+  :root[data-theme="dark"] { --bg: #1c1814; --fg: #f2e8d8; --dim: #b3a28e; --accent: #f28a5a; --on-accent: #1c1814; --bad: #ec6a5f; }
   body { margin: 0; background: var(--bg); color: var(--fg);
          font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
   main { max-width: 520px; margin: 0 auto; padding: 48px 16px; }
   h1 { font-size: 24px; font-weight: 600; margin: 0 0 24px; }
-  .lang { float: right; font-size: 13px; color: var(--dim); cursor: pointer; text-decoration: underline; background: none; padding: 0; color: var(--dim); }
+  .lang { float: right; font-size: 13px; color: var(--dim); cursor: pointer; text-decoration: underline; background: none; padding: 0; border-radius: 0; }
   p { margin: 0 0 16px; }
-  button { font: inherit; background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 8px 22px; cursor: pointer; }
+  button { font: inherit; background: var(--accent); color: var(--on-accent); border: 0; border-radius: 999px; padding: 8px 22px; cursor: pointer; }
   button:disabled { opacity: .3; cursor: default; }
-  #status { margin-top: 16px; min-height: 1.6em; }
+  #status, #alert { margin-top: 16px; }
+  #status:empty, #alert:empty { margin: 0; }
+  #alert { color: var(--bad); font-weight: 600; }
+  :focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .small { color: var(--dim); font-size: 13px; }
   progress { width: 100%; height: 4px; margin-top: 16px; }
   pre { color: var(--dim); font-size: 12px; white-space: pre-wrap; margin-top: 16px; }
@@ -33,7 +38,7 @@
 </head>
 <body>
 <main>
-  <button class="lang" id="lang"></button>
+  <button class="lang" id="lang" lang="ja"></button>
   <h1>Install Mocky</h1>
   <p data-t="intro"></p>
   <p data-t="warn"></p>
@@ -42,24 +47,25 @@
   <p class="small"><span data-t="brick"></span>
     <a href="https://github.com/charlesvestal/fm1-mocky/blob/main/BUILDING.md#install" style="color:inherit" data-t="bricklink"></a></p>
   <p class="small" data-t="back"></p>
-  <p class="small"><a href="https://www.m-vave.com/download" target="_blank" rel="noopener" style="color:inherit">www.m-vave.com/download</a></p>
+  <p class="small"><a href="https://www.m-vave.com/download" target="_blank" rel="noopener" style="color:inherit">www.m-vave.com/download<span class="vh" data-t="newtab"></span></a></p>
   <p><button id="go" disabled data-t="install"></button></p>
   <progress id="bar" max="100" value="0"></progress>
-  <p id="status"></p>
+  <p id="status" role="status"></p>
+  <p id="alert" role="alert"></p>
   <pre id="log"></pre>
   <h2 data-t="stockh"></h2>
   <p class="small" data-t="stockwhy"></p>
   <ol class="small">
     <li><span data-t="stock1"></span> <a id="stocklink" href="https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc" style="color:inherit">FM-1.fwsc</a></li>
-    <li><span data-t="stock2"></span><br><input type="file" id="stockfile" accept=".fwsc"></li>
+    <li><label for="stockfile" data-t="stock2"></label><br><input type="file" id="stockfile" accept=".fwsc"></li>
     <li data-t="stock3"></li>
   </ol>
   <p><button id="stockgo" disabled data-t="stockinstall"></button></p>
   <p><a href="../" style="color:inherit" data-t="manual"></a></p>
-  <p class="small">Mocky is built on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener" style="color:inherit">Hügelton Instruments</a>,
+  <p class="small">Mocky is built on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener" style="color:inherit">Hügelton Instruments<span class="vh" data-t="newtab"></span></a>,
     by way of X0X and FoMni-1.<br>
     Fonts: Barlow Semi Condensed (SIL OFL 1.1). M-VAVE and FM-1 are trademarks of their respective owners.<br>
-    <span data-t="license"></span> <a href="https://github.com/charlesvestal/fm1-mocky" target="_blank" rel="noopener" style="color:inherit">github.com/charlesvestal/fm1-mocky</a></p>
+    <span data-t="license"></span> <a href="https://github.com/charlesvestal/fm1-mocky" target="_blank" rel="noopener" style="color:inherit">github.com/charlesvestal/fm1-mocky<span class="vh" data-t="newtab"></span></a></p>
 </main>
 <script type="module">
 /*LIB*/
@@ -98,6 +104,7 @@ const TEXT = {
     badpkg: "インストールするファイルが壊れています。ページを再読み込みしてください。",
     leave: "書き込み中です。ページを閉じないでください。",
     license: "GPL-3.0、無保証。ソース:",
+    newtab: "（新しいタブで開きます）", progress: "書き込みの進み具合",
   },
   en: {
     intro: "Connect the FM-1 by USB. (Works in Chrome or Edge.)",
@@ -132,6 +139,7 @@ const TEXT = {
     badpkg: "The file to install is damaged. Reload the page.",
     leave: "Writing. Do not close the page.",
     license: "GPL-3.0, no warranty. Source:",
+    newtab: " (opens in a new tab)", progress: "Install progress",
   },
 };
 let lang = "en";                                 /* English first; 日本語 is a click away */
@@ -141,12 +149,24 @@ function applyLang() {
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-t]").forEach((e) => { e.textContent = t(e.dataset.t); });
   $("lang").textContent = t("other");
-  if (lastKey) $("status").textContent = t(lastKey) + lastArg;
+  $("bar").setAttribute("aria-label", t("progress"));
+  $("lang").lang = lang === "ja" ? "en" : "ja";      /* the button names the other language, in it */
+  if (lastKey) show(t(lastKey) + lastArg, BAD.has(lastKey));
+}
+/* the current step in #status (role=status, polite); a failure in #alert (role=alert). The same text is not
+   set twice, so a screen reader hears each step once; "Writing, 40 percent" moves on in tens. */
+const BAD = new Set(["nomidi", "loadfail", "stopped", "error", "denied", "notfound", "model", "lost", "noloader",
+  "noreturn", "mismatch", "badpkg", "stockbad"]);
+function show(txt, bad) {
+  const on = $(bad ? "alert" : "status"), off = $(bad ? "status" : "alert");
+  off.textContent = "";
+  if (on.textContent !== txt) on.textContent = txt;
 }
 $("lang").addEventListener("click", () => { lang = lang === "ja" ? "en" : "ja"; applyLang(); });
 applyLang();
-const sayK = (k, arg = "") => { lastKey = k; lastArg = arg; $("status").textContent = t(k) + arg; };
-const say = (txt) => { lastKey = null; $("status").textContent = txt; };
+const sayK = (k, arg = "") => { lastKey = k; lastArg = arg; show(t(k) + arg, BAD.has(k)); };
+const say = (txt) => { lastKey = null; show(txt, false); };
+const pct = (v) => (lang === "ja" ? `、${v}%` : `, ${v} percent`);
 const log = (t) => { $("log").textContent += t + "\n"; };
 let image = null;
 const meta = /*META*/;
@@ -200,7 +220,7 @@ async function run(img, product, isStock) {
       if (k === "start") sayK("start");
       if (k === "verify") { sayK("verify"); $("bar").value = (a / total) * 100; }
       if (k === "loader") sayK("loader");
-      if (k === "write") { sayK("write"); $("bar").value = ((74 + a) / total) * 100; }
+      if (k === "write") { const v = ((74 + a) / total) * 100; $("bar").value = v; sayK("write", pct(Math.floor(v / 10) * 10)); }
       if (k === "reboot") sayK("reboot");
       if (k === "done") { $("bar").value = 100; sayK(isStock ? "stockdone" : "done"); }
     };
