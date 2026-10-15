@@ -125,14 +125,16 @@ def tc_all(*cmds):
 
 
 def generate():
-    """generated headers: the font (Felucca's)"""
+    """generated headers: the font (Felucca's), the screen reader's words link (fm1-reader)"""
     GEN.mkdir(parents=True, exist_ok=True)
-    r = subprocess.run([sys.executable, str(SRC / "tools" / "gen_font.py"), str(GEN / "felucca_font.h")],
-                       capture_output=True, text=True)
-    sys.stdout.write(r.stdout)
-    if r.returncode:
-        sys.stderr.write(r.stderr)
-        raise SystemExit("build: gen_font.py failed")
+    tools = SRC / "tools"
+    for c in [[tools / "gen_font.py", GEN / "felucca_font.h"],
+              [tools / "gen_words.py", SRC / "firmware" / "words.tsv", SRC / "web" / "words", GEN / "ann_words.h"]]:
+        r = subprocess.run([sys.executable, *map(str, c)], capture_output=True, text=True)
+        sys.stdout.write(r.stdout)
+        if r.returncode:
+            sys.stderr.write(r.stderr)
+            raise SystemExit(f"build: {c[0].name} failed")
 
 
 # ---- update loader
@@ -352,7 +354,7 @@ def main():
         if not m:
             raise SystemExit(f"--release {a.release}: use X.Y[.Z][-suffix], up to two digits each")
         PRODUCT = "FM-1_1%02d%02d%02d" % (int(m[1]), int(m[2]), int(m[3] or 0))
-        VERSION = a.release.upper() if "BETA" in a.release.upper() else a.release.upper() + " BETA"
+        VERSION = a.release.upper()            # the screen reader's HELLO says it: "Mocky 0.9.1"
         name = f"mocky-{a.release}.fwsc"
     fm1pkg_make.SDK = a.sdk
     for rel, sha in SDK_SHA256.items():          # fail early without the SDK

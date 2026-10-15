@@ -43,7 +43,10 @@ static struct {
     uint32_t live_len;              /* mk_buf holds a picture not kept yet (SAVE keeps it) */
     uint32_t up_len, up_got, up_flags, up_on;
     uint32_t changed;               /* the web page changed the screen or the gallery (for the UI) */
+    uint32_t got, got_rc;           /* pictures received; the last one's keeping: MK_OK, an error, MK_NOKEEP */
+    uint32_t clears;                /* the gallery cleared from the page (for the screen reader) */
 } mk;
+#define MK_NOKEEP 0xFFu             /* got_rc: sent without keeping */
 
 /* ---------------------------------------------------------------- CRC --- */
 static uint32_t mk_crc_step(uint32_t c, const uint8_t *b, uint32_t n)   /* zlib CRC-32, c = ~crc */
@@ -319,6 +322,8 @@ static void mk_end(const uint8_t *p, uint32_t n)
         mk_present();                               /* on the screen first: keeping it takes a moment */
         if (mk.up_flags & 1u)
             st = (uint32_t)mk_keep_live();
+        mk.got++;
+        mk.got_rc = mk.up_flags & 1u ? st : MK_NOKEEP;
     }
     mk_put7(r, mk.cur, 2);
     mk_put7(r + 2, mk.n, 2);
@@ -363,6 +368,7 @@ static int mk_service(void)
             mk.shown = 0;                           /* what was on the screen is gone */
         mk.cur = MK_NONE;
         mk.changed = 1;
+        mk.clears++;
         break;
     case 5: {
         uint32_t k = 0;

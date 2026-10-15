@@ -27,6 +27,15 @@ On the FM-1:
 | SAVE | keep the picture just sent without "Keep" (it blinks while there is one) |
 | HOME | which picture this is, and the room left |
 
+### Screen reader
+
+Mocky tells the [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/) what it shows, over USB:
+which picture is on the screen ("picture 3 of 7"), a picture arriving from the page and whether it was kept,
+the slideshow, the room left, and what each button did. A picture itself can't be put in words, so the
+reader says what Mocky knows about it. Open the reader page in Chrome with the FM-1 plugged in; it speaks
+with its own voice, or hands the text to your computer's screen reader. (Its SysEx, `F0 7D 53 52`, shares
+the cable with the pictures' `F0 7D 4D`.)
+
 Felucca's safety stays: OCT− + OCT+ held 5 s for update mode, safe mode after two failed starts, the
 web installers can put any firmware (or M-VAVE's) back.
 
@@ -34,7 +43,7 @@ web installers can put any firmware (or M-VAVE's) back.
 
 ```sh
 ./build.sh                                   # build/mocky.fwsc (identity FM-1_100; --release X.Y)
-sh tests/run_tests.sh                        # host tests, web coder, the whole app in the simulator
+sh tests/run_tests.sh                        # host tests, web coder, the whole app in the simulator (and the reader)
 python3 tools/fm1_install.py build/mocky.fwsc --yes   # flash the attached FM-1
 cd web && python3 -m http.server 8000        # then http://localhost:8000/ in Chrome
 ```

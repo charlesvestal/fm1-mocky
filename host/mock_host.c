@@ -18,6 +18,14 @@
  *   shot FILE.png                save the screen
  *   expect WHAT VALUE            count cur shown live note screen(=FILE.raw) store_writes: exit 1 on mismatch
  *   reboot                       re-run boot from the simulated flash (persistence test)
+ *   listen                       a screen reader starts listening (HELLO, again every 2 s): each SAY is printed
+ *                                ("said: ..."; "said!:" cuts off what was being said)
+ *   where                        the reader asks for everything on the screen
+ *   said TEXT                    some SAY since the last "said" (or "listen") has TEXT in it: else a failure
+ *   speakdump                    every screen and message as the reader gets them (the audit)
+ * The reader's SysEx (F0 7D 53 52) sent with "raw" goes through the queue as on the device: announce.c takes it
+ * before Mocky's own handler.
+ * MOCK_SAID_LOG=FILE: a reader listens from boot, quietly, and every SAY is appended to FILE (the audit).
  */
 #define OM_HOST 1
 #include <stdio.h>
@@ -155,6 +163,36 @@ int plat_gal_prog(uint32_t off, const void *src, uint32_t n)
 
 /* -------------------------------------------------------------- app --- */
 #include "../firmware/src/app/app.h"
+#define ANN_NAME "Mocky " OM_VERSION
+#include "ann_words.h"                                  /* the words file's link (tools/gen_words.py) */
+#include "../firmware/src/announce.c"
+/* what the reader is told: every SAY to stdout with "said:" (listen), and kept for the "said" check */
+static char said_last[ANN_MAX + 1], said_log[16384];   /* said_log: every SAY since the last "said" check */
+static uint32_t said_len, hellos;
+static int said_print = 1, sim_listen;
+static FILE *said_log_f;                                /* MOCK_SAID_LOG=FILE: every SAY, for fm1-reader's audit */
+static int ann_wire_send(const uint8_t *p, uint32_t n)
+{
+    if (n >= 7u && p[4] == ANN_HELLO)
+        hellos++;
+    if (n >= 7u && p[4] == ANN_SAY) {
+        uint32_t i, k = 0;
+        for (i = 6; i + 1u < n && k < ANN_MAX; i++)
+            said_last[k++] = (char)p[i];
+        said_last[k] = 0;
+        if (said_len + k + 2u < sizeof said_log) {
+            memcpy(said_log + said_len, said_last, k);
+            said_len += k;
+            said_log[said_len++] = '\n';
+            said_log[said_len] = 0;
+        }
+        if (said_print)
+            printf("said%s: %s\n", (p[5] & ANN_NOW) ? "!" : "", said_last);
+        if (said_log_f)
+            fprintf(said_log_f, "%s\t%s\n", (p[5] & ANN_KEEP) ? "WARN" : "MSG", said_last);
+    }
+    return 0;
+}
 #include "../firmware/src/app/project.c"
 #include "../firmware/src/app/mock.c"
 #include "../firmware/src/app/ui.c"
@@ -246,6 +284,7 @@ static void png_write(const char *path)   /* RGB PNG, stored deflate blocks (no 
 static void boot(void)
 {
     memset(&ui, 0, sizeof ui);
+    memset(&sp, 0, sizeof sp);          /* the reader's view starts again too (WHERE once it listens) */
     sx_r = sx_w = 0;
     project_load();
     mk_init();
@@ -255,6 +294,10 @@ static void boot(void)
 static void loop_once(void)             /* main_fm1.c's loop body, for one millisecond */
 {
     static uint32_t last_frame;
+    const uint8_t *p;
+    uint32_t n;
+    if (plat_sysex_get(&p, &n) && ann_frame(p, n, now_ms))   /* the screen reader's first, as main_fm1.c */
+        plat_sysex_done();
     if (!mk_service() && sx_r != sx_w)
         sx_r++;                         /* not ours: the updater would take it (ota_service) */
     if (now_ms - last_frame >= 16u) {
@@ -269,6 +312,10 @@ static void run_ms(uint32_t ms)
 {
     while (ms--) {
         now_ms++;
+        if (sim_listen && now_ms % 2000u == 0) {        /* the reader's HELLO, as it sends it */
+            static const uint8_t HELLO[] = {ANN_H0, ANN_H1, ANN_H2, ANN_HELLO, ANN_VER};
+            ann_frame(HELLO, sizeof HELLO, now_ms);
+        }
         loop_once();
     }
 }
@@ -396,6 +443,8 @@ static int expect(const char *what, const char *val)
         got = (long)ui.show_on;
     else if (!strcmp(what, "nor_errors"))
         got = (long)nor_errors;
+    else if (!strcmp(what, "hellos"))
+        got = (long)hellos;
     else if (!strcmp(what, "free_kb"))
         got = (long)(gal_free() / 1024u);
     else {
@@ -420,7 +469,16 @@ int main(int argc, char **argv)
         return 2;
     }
     memset(gal, 0xFF, sizeof gal);
+    if (getenv("MOCK_SAID_LOG")) {                       /* a reader listens from the start, quietly: the log only */
+        said_log_f = fopen(getenv("MOCK_SAID_LOG"), "a");
+        sim_listen = 1;
+        said_print = 0;
+    }
     boot();
+    if (sim_listen) {
+        static const uint8_t HELLO[] = {ANN_H0, ANN_H1, ANN_H2, ANN_HELLO, ANN_VER};
+        ann_frame(HELLO, sizeof HELLO, now_ms);
+    }
     while (fgets(line, sizeof line, f)) {
         int n, i;
         ln++;
@@ -470,6 +528,35 @@ int main(int argc, char **argv)
             }
         } else if (!strcmp(a, "reboot")) {
             boot();
+        } else if (!strcmp(a, "listen")) {
+            static const uint8_t HELLO[] = {ANN_H0, ANN_H1, ANN_H2, ANN_HELLO, ANN_VER};
+            sim_listen = 1;
+            said_len = 0;
+            said_log[0] = 0;
+            ann_frame(HELLO, sizeof HELLO, now_ms);
+            run_ms(40);
+        } else if (!strcmp(a, "where")) {
+            static const uint8_t WHERE[] = {ANN_H0, ANN_H1, ANN_H2, ANN_WHERE};
+            ann_frame(WHERE, sizeof WHERE, now_ms);
+            run_ms(40);
+        } else if (!strcmp(a, "speakdump")) {    /* every screen's text for a screen reader, to stdout */
+            speak_dump();
+        } else if (!strcmp(a, "said")) {
+            char *t = line + 4, *e;
+            while (*t == ' ')
+                t++;
+            e = t + strlen(t);
+            while (e > t && (e[-1] == '\n' || e[-1] == '\r' || e[-1] == ' '))
+                *--e = 0;
+            if (!strstr(said_log, t)) {
+                fprintf(stderr, "line %d: said \"%s\": not said (since the last check: %s)\n", ln, t,
+                        said_len ? said_log : "nothing\n");
+                fails++;
+            } else {
+                printf("  ok said \"%s\"\n", t);
+            }
+            said_len = 0;
+            said_log[0] = 0;
         } else {
             goto bad;
         }

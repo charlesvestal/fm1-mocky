@@ -8,6 +8,7 @@
   install/index.html            the web installer (web/mocky_installer.html, with fm1pkg.js, fm1ota.js and
                                 the package's metadata inlined; Chrome or Edge, Web MIDI)
   firmware/mocky-VERSION.fwsc   the package the installer writes; also the download
+  words/                        the screen reader's words files (web/words, from firmware/words.tsv)
 
   tools/make_pages.py build/mocky-0.9.fwsc 0.9 OUT_DIR
 
@@ -109,6 +110,13 @@ uninstalls the way Felucca and X0X do, and the installer can put M-VAVE's own fi
 </table>
 <p>Mocky starts on the picture you looked at last.</p>
 
+<h2>Screen reader</h2>
+<p>Mocky works with the <a href="https://charlesvestal.github.io/fm1-reader/">FM-1 Screen Reader</a>. A picture
+can't be put into words, but Mocky tells the reader everything else it shows: which picture is on the screen
+("picture 3 of 7"), a new picture arriving and whether it was kept, the slideshow, the room left, and what each
+button did. Open the reader in Chrome with the FM-1 plugged in; it speaks with its own voice, or hands the text to
+your computer's screen reader.</p>
+
 <p class="small">To go back to the official
 firmware, use the installer's "Back to the stock firmware", or M-VAVE's updater, M-UPGRADE, from
 <a href="https://www.m-vave.com/download">m-vave.com/download</a>. M-VAVE and FM-1 are
@@ -147,8 +155,10 @@ def main(pkg, version, out):
     (out / "app").mkdir()
     for f in ("index.html", "mocky.js"):
         shutil.copy(SRC / "web" / f, out / "app" / f)
+    # the screen reader's words files (fm1-reader): every one ever made, for the devices that point at them
+    shutil.copytree(SRC / "web" / "words", out / "words")
     (out / ".nojekyll").write_text("")
-    print(f"site: {out}: index.html, app/, install/ ({product}), firmware/{name} ({len(raw)} B)")
+    print(f"site: {out}: index.html, app/, install/ ({product}), words/, firmware/{name} ({len(raw)} B)")
 
 
 if __name__ == "__main__":

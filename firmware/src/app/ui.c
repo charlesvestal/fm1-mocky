@@ -6,7 +6,8 @@
  *   white keys       picture 1 .. 16          SELECT ALGORITHM PRESETS KNOB 1-3, OCT- / OCT+   step
  *   PLAY             slideshow on / off       KNOB 4   its pace (1 .. 30 s a picture)
  *   SAVE             keep the picture just sent     HOME   which picture this is, and the room left
- * Notes sit on the picture's bottom edge for a moment. */
+ * Notes sit on the picture's bottom edge for a moment. A screen reader on the computer (fm1-reader) hears
+ * each note, and what the page did: the "screen reader" section, near the end. */
 
 /* FoMni's colours: cream paper, warm brown ink, coral and teal */
 #define K_BG RGB(250, 244, 232)
@@ -93,7 +94,60 @@ static void draw_welcome(void)
     ui.welcome = 1;
 }
 
-static void say(const char *a, const char *b)
+/* ------------------------------------------------- the reader's text --- */
+/* What a screen reader is told (announce.c) is built in sp_buf: the note's own text, or a sentence that says
+ * it in full where the note is short for the eye ("3 / 7": "Picture 3 of 7"). */
+static char sp_buf[ANN_MAX + 1] OM_POOL;
+static uint32_t sp_n;
+static uint8_t sp_said;                 /* a note went to the screen reader this frame: speak() leaves it be */
+#define SP_LATER 0x80u                  /* say_full: a readout, said once the knob settles */
+static void sp_cat(const char *s)
+{
+    while (*s && sp_n < ANN_MAX)
+        sp_buf[sp_n++] = *s++;
+    sp_buf[sp_n] = 0;
+}
+static void sp_u(uint32_t v)
+{
+    char t[12];
+    put_u(t, v);
+    sp_cat(t);
+}
+static void sp_pic(uint32_t i)          /* "Picture 3 of 7" ("kept as picture 3 of 7") */
+{
+    sp_cat(sp_n ? "picture " : "Picture ");
+    sp_u(i + 1u);
+    sp_cat(" of ");
+    sp_u(mk.n);
+}
+static void sp_free(void)               /* "120 KB free" */
+{
+    sp_u(gal_free() / 1024u);
+    sp_cat(" KB free");
+}
+static const char *mk_err(int rc);
+static const char *sp_err(const char *lead, int rc)   /* a warning: "Not kept: gallery full" */
+{
+    sp_n = 0;
+    sp_cat(lead);
+    sp_cat(mk_err(rc));
+    return sp_buf;
+}
+static void msg_text(const char *a, const char *b)   /* the note as the reader gets it: "a b", without "3.." dots */
+{
+    sp_n = 0;
+    sp_cat(a);
+    if (b && *b) {
+        sp_cat(" ");
+        sp_cat(b);
+    }
+    while (sp_n && sp_buf[sp_n - 1] == '.')
+        sp_buf[--sp_n] = 0;
+}
+
+/* a note on the screen, a + b; and to a screen reader: spoken, or the note's text (flags: ANN_NOW, ANN_KEEP for a
+ * warning, SP_LATER for a readout) */
+static void say_full(const char *a, const char *b, const char *spoken, uint32_t flags)
 {
     char *p = put_s(ui.note, a);
     if (b && *b) {
@@ -116,7 +170,21 @@ static void say(const char *a, const char *b)
         text_c(120, (NOTE_H - FONT_S.h) / 2, &FONT_S, ui.note, K_PILL_T);
         cv_blit(0, NOTE_Y);
     }
+    if (ann_on()) {
+        if (!spoken) {
+            msg_text(a, b);
+            spoken = sp_buf;
+        }
+        if (flags & SP_LATER)
+            ann_later(spoken, ANN_NOW, 120u, plat_ms());
+        else
+            ann_say(spoken, 0, flags);
+        sp_said = 1;
+    }
 }
+static void say(const char *a, const char *b) { say_full(a, b, 0, ANN_NOW); }
+/* something did not happen: a screen reader says it whole (what follows does not cut it off) */
+static void warn(const char *a, const char *spoken) { say_full(a, "", spoken, ANN_NOW | ANN_KEEP); }
 void ui_say(const char *a, const char *b) { say(a, b); }
 
 static void note_clear(void)
@@ -128,17 +196,24 @@ static void note_clear(void)
         lcd_fill(0, NOTE_Y, 240, NOTE_H, K_BG);
 }
 
-static void say_where(void)              /* "3 / 7" */
+static void say_where(uint32_t flags)    /* "3 / 7" */
 {
     char a[16], *p = a;
+    sp_n = 0;
     if (mk.cur == MK_NONE) {
-        say(mk.shown ? "NOT KEPT" : "NO PICTURES", mk.shown ? "SAVE KEEPS IT" : "");
+        if (mk.shown) {
+            sp_cat("Picture not kept. Press SAVE to keep it");
+            say_full("NOT KEPT", "SAVE KEEPS IT", sp_buf, flags);
+        } else {
+            say_full("NO PICTURES", "", "No pictures kept", flags);
+        }
         return;
     }
     p = put_u(p, mk.cur + 1u);
     p = put_s(p, " / ");
     put_u(p, mk.n);
-    say(a, "");
+    sp_pic(mk.cur);
+    say_full(a, "", sp_buf, flags);
 }
 
 static const char *mk_err(int rc)
@@ -151,12 +226,12 @@ static void go(int32_t i)
 {
     int rc;
     if (!mk.n) {
-        say_where();
+        say_where(ANN_NOW);
         return;
     }
     i = ((i % (int32_t)mk.n) + (int32_t)mk.n) % (int32_t)mk.n;
     if ((rc = mk_show((uint32_t)i)) != MK_OK) {
-        say(mk_err(rc), "");
+        warn(mk_err(rc), sp_err("Picture not shown: ", rc));
         return;
     }
     ui.welcome = 0;
@@ -166,12 +241,12 @@ static void go(int32_t i)
     ui.act_t = plat_ms();
 }
 
-static void step(int32_t d)
+static void step(int32_t d, uint32_t flags)   /* flags: SP_LATER for a knob */
 {
     int32_t at = mk.cur == MK_NONE ? (d > 0 ? -1 : 0) : (int32_t)mk.cur;
     go(at + d);
     if (mk.n)
-        say_where();
+        say_where(flags);
 }
 
 static void button(int b)
@@ -180,20 +255,32 @@ static void button(int b)
     int rc;
     switch (b) {
     case B_OCTDN:
-        step(-1);
+        step(-1, ANN_NOW);
         break;
     case B_OCTUP:
-        step(1);
+        step(1, ANN_NOW);
         break;
     case B_PLAY:
         ui.show_on = !ui.show_on && mk.n > 1u;
         ui.show_t = plat_ms();
         put_s(put_u(put_s(t, "EVERY "), proj.show_s), " S");
-        say(ui.show_on ? "SLIDESHOW" : mk.n > 1u ? "SLIDESHOW OFF" : "KEEP TWO PICTURES", ui.show_on ? t : "");
+        if (ui.show_on) {
+            sp_n = 0;
+            sp_cat("Slideshow on, ");
+            sp_cat(t);
+            say_full("SLIDESHOW", t, sp_buf, ANN_NOW);
+        } else if (mk.n > 1u) {
+            say("SLIDESHOW OFF", "");
+        } else {
+            warn("KEEP TWO PICTURES", "No slideshow: keep two pictures first");
+        }
         break;
     case B_SAVE:
         if (!mk.live_len) {
-            say(mk.shown ? "ALREADY KEPT" : "NOTHING TO KEEP", "");
+            if (mk.shown)
+                say("ALREADY KEPT", "");
+            else
+                warn("NOTHING TO KEEP", "Not kept: no new picture to keep");
             break;
         }
         rc = mk_keep_live();
@@ -202,9 +289,12 @@ static void button(int b)
             ui.dirty = 1;
             ui.act_t = plat_ms();
             put_u(put_s(t, "KEPT AS "), mk.cur + 1u);
-            say(t, "");
+            sp_n = 0;
+            sp_cat("Kept as ");
+            sp_pic(mk.cur);
+            say_full(t, "", sp_buf, ANN_NOW);
         } else {
-            say(mk_err(rc), "");
+            warn(mk_err(rc), sp_err("Not kept: ", rc));
         }
         break;
     case B_HOME: {                          /* "3 / 7  120 KB FREE" */
@@ -212,7 +302,19 @@ static void button(int b)
         if (mk.cur != MK_NONE)
             p = put_s(put_u(put_s(put_u(p, mk.cur + 1u), " / "), mk.n), "  ");
         put_s(put_u(p, gal_free() / 1024u), " KB FREE");
-        say(a, "");
+        sp_n = 0;                           /* "Picture 3 of 7, 120 KB free" */
+        if (mk.cur != MK_NONE) {
+            sp_pic(mk.cur);
+        } else if (mk.n) {
+            sp_cat(mk.shown ? "Picture not kept, " : "No picture shown, ");
+            sp_u(mk.n);
+            sp_cat(" in the gallery");
+        } else {
+            sp_cat("No pictures kept");
+        }
+        sp_cat(", ");
+        sp_free();
+        say_full(a, "", sp_buf, ANN_NOW);
         break;
     }
     default:
@@ -235,18 +337,18 @@ static void input(void)
         if (ch >> WHITE_K[i] & 1u) {
             if (i < mk.n) {
                 go((int32_t)i);
-                say_where();
+                say_where(ANN_NOW);
             } else {
                 char t[24];
                 put_u(put_s(t, "NO PICTURE "), i + 1u);
-                say(t, "");
+                warn(t, 0);
             }
         }
     sum += plat_enc(EN_SELECT) + plat_enc(EN_ALGO) + plat_enc(EN_PRESET);
     for (i = 0; i < 3u; i++)
         sum += plat_enc(EN_K1 + (int)i);
     if (sum)
-        step(sum > 0 ? 1 : -1);             /* one picture per turn burst */
+        step(sum > 0 ? 1 : -1, SP_LATER);   /* one picture per turn burst */
     if ((e = plat_enc(EN_K4)) != 0) {
         char t[16];
         proj.show_s = (uint8_t)clamp((int32_t)proj.show_s + (e > 0 ? 1 : -1), 1, 30);
@@ -254,7 +356,7 @@ static void input(void)
         ui.act_t = plat_ms();
         ui.show_t = plat_ms();
         put_s(put_u(put_s(t, "EVERY "), proj.show_s), " S");
-        say("SLIDESHOW", t);
+        say_full("SLIDESHOW", t, 0, SP_LATER);
     }
 }
 
@@ -272,6 +374,181 @@ static void leds(void)
     plat_glow(1);
     plat_leds(b, k);
 }
+
+/* ------------------------------------------------------ screen reader --- */
+/* The screen as text for a screen reader on the computer (announce.c; fm1-reader). A picture can't be put in
+ * words, so the reader hears what Mocky itself shows and does: which picture this is ("Picture 3 of 7"), a
+ * picture arriving from the page (kept or not), the gallery cleared, the slideshow, and every note (say_full).
+ * WHERE (the reader asks, or has just started listening) is everything at once. Nothing is built while no
+ * reader listens. */
+static struct {
+    uint32_t cur, n, got, clears;
+    uint8_t started, show_on;
+} sp OM_POOL;
+
+static void sp_snap(void)
+{
+    sp.cur = mk.cur;
+    sp.n = mk.n;
+    sp.got = mk.got;
+    sp.clears = mk.clears;
+    sp.show_on = (uint8_t)ui.show_on;
+}
+
+static void sp_gallery(void)            /* "7 in the gallery, 120 KB free" */
+{
+    if (mk.n) {
+        sp_u(mk.n);
+        sp_cat(" in the gallery, ");
+    } else {
+        sp_cat("Gallery empty, ");
+    }
+    sp_free();
+}
+
+static void sp_screen(void)             /* WHERE: everything on the screen */
+{
+    char t[16];
+    sp_n = 0;
+    if (!mk.shown) {                        /* the welcome page */
+        sp_cat("Mocky, pictures for the FM-1 screen. No picture shown. ");
+        sp_gallery();
+        sp_cat(". Plug in USB and open the Mocky page in Chrome to send one");
+        return;
+    }
+    if (mk.cur == MK_NONE) {
+        sp_cat("New picture, not kept. Press SAVE to keep it. ");
+        sp_gallery();
+    } else {                                /* "Picture 3 of 7. 120 KB free" */
+        sp_pic(mk.cur);
+        sp_cat(". ");
+        sp_free();
+    }
+    if (ui.show_on) {
+        put_s(put_u(put_s(t, "EVERY "), proj.show_s), " S");
+        sp_cat(". Slideshow on, ");
+        sp_cat(t);
+    }
+}
+
+/* a picture came from the page: rc, how keeping it went (MK_OK, an error, MK_NOKEEP) */
+static void sp_got(uint32_t rc)
+{
+    sp_n = 0;
+    if (rc == MK_OK) {
+        sp_cat("New picture, kept as ");
+        sp_pic(mk.cur);
+    } else if (rc == MK_NOKEEP) {
+        sp_cat("New picture, not kept. Press SAVE to keep it");
+    } else {
+        sp_err("New picture shown, not kept: ", (int)rc);
+    }
+}
+
+static void speak(void)
+{
+    uint32_t flags = ANN_NOW;
+    int where = ann_where();
+    if (!ann_on()) {
+        sp.started = 0;
+        sp_said = 0;
+        return;
+    }
+    if (!sp.started || where) {
+        sp.started = 1;
+        sp_snap();
+        sp_screen();
+        ann_say(sp_buf, 0, ANN_NOW);
+        sp_said = 0;
+        return;
+    }
+    if (sp_said) {                          /* a note said what happened */
+        sp_said = 0;
+        sp_snap();
+        return;
+    }
+    sp_n = 0;
+    if (mk.got != sp.got) {                 /* a picture from the page (once a file changes, when watched) */
+        sp_got(mk.got_rc);
+        if (mk.got_rc != MK_OK && mk.got_rc != MK_NOKEEP)
+            flags |= ANN_KEEP;
+    } else if (mk.clears != sp.clears) {    /* the page cleared the gallery */
+        sp_cat(mk.shown ? "Gallery cleared. The picture on the screen is not kept" : "Gallery cleared");
+    } else if (mk.cur != sp.cur && mk.cur != MK_NONE) {   /* the page showed one, or the slideshow moved on */
+        sp_pic(mk.cur);
+        if (ui.show_on)
+            flags = 0;                      /* not the user's doing: after what is being said */
+    }
+    if (sp.show_on && !ui.show_on)          /* a picture from the page stops the slideshow */
+        sp_cat(sp_n ? ". Slideshow off" : "Slideshow off");
+    sp_snap();
+    if (sp_n)
+        ann_say(sp_buf, 0, flags);
+}
+
+#ifdef OM_HOST
+/* every screen and message as a screen reader gets them (the "speakdump" command): KIND <tab> the text sent
+ * (fm1-reader/tools/audit.mjs puts it in words with web/words/ and checks it); the scenarios' said log adds
+ * the notes as they happen */
+static void sp_print(const char *kind, const char *t) { printf("%s\t%s\n", kind, t); }
+static void speak_dump(void)
+{
+    static const char *const MSG[][2] = {{"UPDATE MODE IN", "3.."}, {"UPDATE MODE", "CANCELLED"},
+                                         {"SLIDESHOW OFF", ""}, {"ALREADY KEPT", ""}};
+    static const int ERR[] = {MK_E_FULL, MK_E_FLASH, MK_E_DATA};   /* keeping: full, flash; showing: flash, data */
+    uint32_t keep_n = mk.n, keep_cur = mk.cur, keep_shown = mk.shown, keep_show = ui.show_on, i, w;
+    uint8_t keep_s = proj.show_s;
+    char t[16];
+    for (w = 0; w < 6u; w++) {              /* WHERE: the welcome page (empty, or not), a kept picture (the
+                                               slideshow off, on), a new one not kept */
+        mk.n = w == 0u ? 0u : 7u;
+        mk.shown = w >= 2u;
+        mk.cur = w == 2u || w == 3u ? 2u : w == 5u ? 0u : MK_NONE;
+        if (w == 5u)
+            mk.n = 1u;
+        ui.show_on = w == 3u;
+        sp_screen();
+        sp_print("WHERE", sp_buf);
+    }
+    mk.n = 7u;
+    mk.shown = 1u;
+    for (i = 0; i < 7u; i++) {
+        mk.cur = i;
+        sp_n = 0;
+        sp_pic(i);
+        sp_print("SCREEN", sp_buf);
+    }
+    mk.cur = 6u;
+    sp_got(MK_OK);
+    sp_print("MSG", sp_buf);
+    sp_got(MK_NOKEEP);
+    sp_print("MSG", sp_buf);
+    for (i = 0; i < 2u; i++) {
+        sp_got((uint32_t)ERR[i]);
+        sp_print("WARN", sp_buf);
+        sp_print("WARN", sp_err("Not kept: ", ERR[i]));
+        sp_print("WARN", sp_err("Picture not shown: ", ERR[i + 1u]));
+    }
+    for (i = 1; i <= 30u; i++) {            /* KNOB 4: the slideshow's pace */
+        put_s(put_u(put_s(t, "EVERY "), i), " S");
+        msg_text("SLIDESHOW", t);
+        sp_print("KNOB", sp_buf);
+        sp_n = 0;
+        sp_cat("Slideshow on, ");
+        sp_cat(t);
+        sp_print("MSG", sp_buf);
+    }
+    for (i = 0; i < sizeof MSG / sizeof MSG[0]; i++) {
+        msg_text(MSG[i][0], MSG[i][1]);
+        sp_print("MSG", sp_buf);
+    }
+    mk.n = keep_n;
+    mk.cur = keep_cur;
+    mk.shown = keep_shown;
+    ui.show_on = keep_show;
+    proj.show_s = keep_s;
+}
+#endif
 
 /* ------------------------------------------------------------- frame --- */
 void ui_init(void)
@@ -317,6 +594,8 @@ void ui_frame(void)
             ui.act_t = now;                 /* try again later */
     }
     leds();
+    speak();
+    ann_tick(now);
     ui.frame++;
 }
 

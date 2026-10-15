@@ -227,6 +227,12 @@ static void fm1_main(void)
                 enter_uboot("UBOOT");
             }
         }
+        {   /* a screen reader's SysEx (announce.c, F0 7D 53 52), before Mocky's own (F0 7D 4D) and the updater */
+            const uint8_t *p;
+            uint32_t n;
+            if (ota_frame_get(&p, &n) && ann_frame(p, n, fm1_ms))
+                ota_frame_done();
+        }
         if (!mk_service())                          /* the web page's SysEx first, */
             ota_service();                          /* then M-UPGRADE's handshake (other SysEx is dropped) */
         if (usb.ota_req) {

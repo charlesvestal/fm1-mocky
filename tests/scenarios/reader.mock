@@ -1,0 +1,83 @@
+# The screen reader (fm1-reader, announce.c): a reader listens, and what Mocky shows and does is said once:
+# which picture this is, a picture arriving from the page, the notes, the slideshow, the gallery cleared.
+# (tests/host/mock_test.mjs writes the pictures.)
+wait 200
+listen
+wait 100
+said Mocky, pictures for the FM-1 screen. No picture shown. Gallery empty, 275 KB free. Plug in USB and open the Mocky page in Chrome to send one
+expect hellos 1
+
+# pictures from the page: kept, and not kept
+send build/host/pics/ui.syx
+said New picture, kept as picture 1 of 1
+send build/host/pics/second.syx
+said New picture, kept as picture 2 of 2
+send build/host/pics/gradient-live.syx
+said New picture, not kept. Press SAVE to keep it
+tap HOME
+said Picture not kept, 2 in the gallery
+tap SAVE
+said Kept as picture 3 of 3
+tap SAVE
+said ALREADY KEPT
+
+# the reader's SysEx and Mocky's own on the same port: the reader's is taken first, Mocky's still answered
+raw F0 7D 53 52 03 F7
+said Picture 3 of 3. 235 KB free
+send build/host/pics/info.syx
+send build/host/pics/show0.syx
+said Picture 1 of 3
+expect cur 0
+
+# stepping: the buttons at once, a knob once it settles, the keys
+tap OCT+
+said Picture 2 of 3
+turn SELECT 1
+wait 200
+said Picture 3 of 3
+tapkey w0
+said Picture 1 of 3
+tapkey w5
+said NO PICTURE 6
+tap HOME
+said Picture 1 of 3,
+# slideshow: PLAY, KNOB 4 its pace, the pictures as it moves on
+tap PLAY
+said Slideshow on, EVERY 3 S
+turn K4 -1
+wait 200
+said SLIDESHOW EVERY 2 S
+wait 2100
+said Picture 2 of 3
+where
+said Slideshow on, EVERY 2 S
+tap PLAY
+said SLIDESHOW OFF
+# a picture from the page stops the slideshow
+tap PLAY
+send build/host/pics/ui.syx
+said New picture, kept as picture 4 of 4. Slideshow off
+expect slideshow 0
+
+# warnings: the gallery full (the picture shown, not kept), SAVE then
+send build/host/pics/noise.syx
+send build/host/pics/noise.syx
+send build/host/pics/noise.syx 4
+said New picture shown, not kept: GALLERY FULL
+tap SAVE
+said Not kept: GALLERY FULL
+
+# the page clears the gallery: the picture on the screen stays, not kept
+send build/host/pics/clear.syx
+said Gallery cleared. The picture on the screen is not kept
+tap PLAY
+said No slideshow: keep two pictures first
+tap OCT+
+said Picture not kept
+reboot
+tap SAVE
+said Not kept: no new picture to keep
+tap OCT-
+said No pictures kept
+where
+said No picture shown. Gallery empty
