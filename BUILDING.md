@@ -83,8 +83,37 @@ mode. If the FM-1 no longer starts but reaches the chip's update mode (4C4A:8057
 
 ## Publishing a release
 
-1. `./build.sh --release X.Y` (the identity, FM-1_1XXYYZZ, is what the installer checks).
-2. `tools/publish_pages.sh X.Y`: builds the site (landing page, browser emulator, web installer,
-   firmware) with `tools/make_pages.py` and pushes it to the `gh-pages` branch, which GitHub Pages
+A release is built on GitHub from its tag, so anyone can check that the package came from this source:
+`.github/workflows/release.yml` calls the shared FM-1 builder,
+[`zvenson/fm1-build` at `v1`](https://github.com/zvenson/fm1-build/tree/v1) (as MONK-1, LOOM-8, X0X and Melodee do).
+The builder checks out the tagged commit, installs JieLi's Linux toolchain and the AC79 SDK at its fixed tag, runs
+`./build.sh --release X.Y` and `tests/run_tests.sh` (a failing test stops the release), then signs build provenance
+for `mocky-X.Y.fwsc` and `mocky-X.Y-app.bin`. The Firmware Hub shows such packages as built from source.
+
+1. Write the notes first, as a draft: `gh release create vX.Y --draft --title "Mocky X.Y" --notes-file NOTES.md`
+   (the workflow keeps a draft's notes; without one it makes a draft from the commits).
+2. Push the tag: `git tag vX.Y && git push origin vX.Y`. The workflow builds, tests, attests, checks the SHA-256 sums
+   and the signatures against the builder, the tag and the commit, then publishes the draft. A tag with a suffix
+   (`v1.0-beta`) is a prerelease. A published release is never rebuilt: a new build needs a new tag. A manual run
+   on a branch (Actions, Run workflow) builds and attests a development package, in the run's `packages` artifact.
+3. The site from that package: `gh release download vX.Y --pattern '*.fwsc' --dir build --clobber`, then
+   `tools/publish_pages.sh X.Y`: it builds the site (landing page, browser emulator, web installer, firmware) with
+   `tools/make_pages.py` from `build/mocky-X.Y.fwsc`, and pushes it to the `gh-pages` branch, which GitHub Pages
    serves at <https://charlesvestal.github.io/fm1-mocky/>.
-3. `gh release create vX.Y build/mocky-X.Y.fwsc` for the command-line download.
+
+To check a downloaded package yourself (GitHub CLI, signed in):
+
+```sh
+tag=vX.Y repo=charlesvestal/fm1-mocky
+gh release download "$tag" --repo "$repo" --dir build/verify --pattern '*.fwsc'
+git fetch origin "refs/tags/$tag:refs/tags/$tag"
+gh attestation verify "build/verify/mocky-${tag#v}.fwsc" --repo "$repo" \
+  --signer-workflow zvenson/fm1-build/.github/workflows/build.yml \
+  --source-ref "refs/tags/$tag" --source-digest "$(git rev-parse "$tag^{commit}")"
+```
+
+The same checks the `-app.bin`. `SHA256SUMS` comes with the downloads; a checksum alone proves nothing about where a
+package was built.
+
+A local release build (`./build.sh --release X.Y`, package `build/mocky-X.Y.fwsc`; its identity FM-1_1XXYYZZ is
+what the installer checks) is still how to try one on the FM-1 before tagging.
