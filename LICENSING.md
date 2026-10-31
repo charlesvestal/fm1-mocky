@@ -1,20 +1,18 @@
-# FoMni licensing
+# Mocky licensing
 
-FoMni is free software under the GNU General Public License, version 3 only
-(`GPL-3.0-only`, full text in `LICENSE`). It is built on Felucca's platform layer (through X0X)
-and keeps Felucca's licence. If you distribute FoMni, or firmware derived from it, you must give
-your recipients its complete corresponding source under the same licence.
+Mocky is free software under the GNU General Public License, version 3 only
+(`GPL-3.0-only`, full text in `LICENSE`). It is built on Felucca's platform layer (through X0X and
+FoMni-1) and keeps Felucca's licence. If you distribute Mocky, or firmware derived from it, you must
+give your recipients its complete corresponding source under the same licence.
 
 ## Where the code comes from
 
 | What | Origin | Licence |
 | --- | --- | --- |
-| Platform: `firmware/hal/`, `firmware/loader/`, `firmware/src/{libc,lcd,gfx,usb,storage,ota,midi_uart}.c`, `tools/` (build, package, install, rescue), `web/fm1*.js` | [Felucca](https://github.com/hugelton/Felucca), Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments, as changed for [X0X](https://github.com/charlesvestal/fm1-x0x) and FoMni | GPL-3.0-only |
-| `firmware/src/app/{panel,plat_fm1,main_fm1}.c`, `host/omni_host.c`, `web/emu/` | adapted from X0X (itself from Felucca's `panel.c`, `main.c`, `audio.c`) | GPL-3.0-only |
-| Rhythm patterns, single-cycle waves, drum sounds, envelope shapes and the strum plate's voicing (`firmware/src/dsp/om_data.h`, `om_drums.h`, made by `tools/import_chordian.py`) | [Chordian](https://github.com/Jan125/pb.chordian) by Jan125, an OM-84 emulator | CC0 1.0 (public domain) |
-| The idea of a browser emulator for FM-1 firmware (`web/emu/`) | [Groove OS](https://www.groove-os.com/) by Peter Gombos, whose site runs its firmware in the browser; no code from it | credit only |
+| Platform: `firmware/hal/`, `firmware/loader/`, `firmware/src/{libc,lcd,gfx,usb,storage,ota,main}.c`, `tools/` (build, package, install, rescue), `web/fm1*.js` | [Felucca](https://github.com/hugelton/Felucca), Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments, as changed for [X0X](https://github.com/charlesvestal/fm1-x0x), [FoMni-1](https://github.com/charlesvestal/fm1-fomni) and Mocky | GPL-3.0-only |
+| `firmware/src/app/{panel,plat_fm1,main_fm1}.c`, `host/mock_host.c` | adapted from FoMni-1 (itself from X0X and Felucca's `panel.c`, `main.c`, `audio.c`) | GPL-3.0-only |
 | The screen reader's firmware side: `firmware/src/announce.c`, `tools/gen_words.py` | [fm1-base](https://github.com/charlesvestal/fm1-base) (`device/announce.c`, `tools/gen_words.py`), Copyright (C) 2026 Charles Vestal, copied by [fm1-reader](https://github.com/charlesvestal/fm1-reader)'s `tools/sync_announce.sh` | MPL-2.0 (compatible with the GPL: MPL-2.0 section 3.3) |
-| Everything else in `firmware/src/{app,dsp}`, `tests/` | FoMni | GPL-3.0-only |
+| Everything else: `firmware/src/app/{mock,ui,project}.c` (the pictures, the gallery, the SysEx protocol), `web/mocky.js` and `web/index.html` (the page that sends pictures), `tests/` | Mocky | GPL-3.0-only |
 
 ## Third-party material
 
@@ -26,11 +24,10 @@ your recipients its complete corresponding source under the same licence.
 
 ## Trademarks
 
-Omnichord is a trademark of Suzuki Musical Instrument Corporation, used here only to say what
-inspired FoMni. "Felucca" and "Hügelton Instruments" are names of Hügelton Instruments.
-"M-VAVE" and "FM-1" are trademarks of their respective owners. FoMni is independent firmware; it is
-not affiliated with, endorsed by or supported by any of them.
+"Felucca" and "Hügelton Instruments" are names of Hügelton Instruments. "M-VAVE" and "FM-1" are
+trademarks of their respective owners. Mocky is independent firmware; it is not affiliated with,
+endorsed by or supported by any of them.
 
 ## Radio
 
-FoMni never enables the Bluetooth / Wi-Fi radio of the hardware.
+Mocky never enables the Bluetooth / Wi-Fi radio of the hardware.
