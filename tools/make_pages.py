@@ -121,8 +121,8 @@ your computer's screen reader.</p>
 
 <p class="small">To go back to the official
 firmware, use the installer's "Back to the stock firmware", or M-VAVE's updater, M-UPGRADE, from
-<a href="https://www.m-vave.com/download">m-vave.com/download</a>. M-VAVE and FM-1 are
-trademarks of their owners. Mocky is not affiliated with them.</p>
+<a href="https://www.m-vave.com/download">m-vave.com/download</a> (M-UPGRADE 3.11 finds the current version, not
+older ones). M-VAVE and FM-1 are trademarks of their owners. Mocky is not affiliated with them.</p>
 </main>
 </body>
 </html>

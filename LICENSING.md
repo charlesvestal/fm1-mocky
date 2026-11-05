@@ -13,6 +13,7 @@ give your recipients its complete corresponding source under the same licence.
 | `firmware/src/app/{panel,plat_fm1,main_fm1}.c`, `host/mock_host.c` | adapted from FoMni-1 (itself from X0X and Felucca's `panel.c`, `main.c`, `audio.c`) | GPL-3.0-only |
 | The screen reader's firmware side: `firmware/src/announce.c`, `tools/gen_words.py` | [fm1-base](https://github.com/charlesvestal/fm1-base) (`device/announce.c`, `tools/gen_words.py`), Copyright (C) 2026 Charles Vestal, copied by [fm1-reader](https://github.com/charlesvestal/fm1-reader)'s `tools/sync_announce.sh` | MPL-2.0 (compatible with the GPL: MPL-2.0 section 3.3) |
 | The flash parts the storage may use: `firmware/hal/fm1_flash_ok.h`, `tests/host/flash_ok_test.c` | [fm1-base](https://github.com/charlesvestal/fm1-base) (`device/fm1_flash_ok.h`, `tests/flash_ok_test.c`, fm1-base#35), Copyright (C) 2026 Laurens (@profikid) | MPL-2.0 (compatible with the GPL: MPL-2.0 section 3.3) |
+| The update handshake's tests: `tests/ota_hs_test.c`, `tests/host/installer_hs_test.mjs` | [felucca-bsp](https://github.com/hugelton/felucca-bsp)'s `tests/ota_test.c` and [fm1-base](https://github.com/charlesvestal/fm1-base)'s `tests/installer_hs_test.mjs`, Copyright (C) 2026 Charles Vestal | MPL-2.0 (compatible with the GPL: MPL-2.0 section 3.3) |
 | Everything else: `firmware/src/app/{mock,ui,project}.c` (the pictures, the gallery, the SysEx protocol), `web/mocky.js` and `web/index.html` (the page that sends pictures), `tests/` | Mocky | GPL-3.0-only |
 
 ## Third-party material
