@@ -76,53 +76,53 @@ ul.pages b { color: var(--teal); }
 <body>
 <main>
 <h1>Mocky</h1>
-<p class="lede">Pictures on the FM-1's screen, sent from your browser. Drop a screen mockup on the page and
-it's on the FM-1 a moment later, exactly as the screen will show it: check the colours, the sizes, and how the
-text reads at arm's length, on the real thing.</p>
+<p class="lede">Mocky puts your pictures on the FM-1's screen, sent from your browser. Drop a screen mockup on
+the page, and a moment later it's on the FM-1, exactly as the screen will show it. Use it to check the colors,
+the sizes and how the text reads at arm's length, on the real thing.</p>
 <div class="shots">
   <img src="img/welcome.png" width="240" height="240" alt="Mocky's welcome screen on the FM-1: Mocky, pictures for the FM-1 screen; plug in USB and open charlesvestal.github.io/fm1-mocky in Chrome">
   <img src="img/step.png" width="240" height="240" alt="A FoMni-1 screen shown by Mocky: the Play page, chord C (C E G), Voice 1 80, Voice 2 45, Sustain 50, Chord 60, with Mocky's note 1 / 3 on its bottom edge">
   <img src="img/slideshow.png" width="240" height="240" alt="An AMB-1 screen shown by Mocky in a slideshow: the Garden piece in D Dorian, chord Dm7, TEMPO 72, EVOLVE 35, MOTION 50, DRIFT 39s">
 </div>
-<div class="status"><strong>Version __VERSION__.</strong> It installs and
-uninstalls the way Felucca and X0X do, and the installer can put M-VAVE's own firmware back. Installing is at your own risk.</div>
+<div class="status"><strong>Version __VERSION__.</strong> You install and
+uninstall it the same way as Felucca and X0X, and the installer can put M-VAVE's own firmware back. Installing is at your own risk.</div>
 <nav class="ways" aria-label="Get Mocky">
-  <a href="app/"><strong>Send pictures</strong><span>Chrome or Edge, with the FM-1 on USB running Mocky. Drop, choose or paste a picture.</span></a>
-  <a href="install/"><strong>Install</strong><span>From Chrome or Edge, with the FM-1 connected by USB. Nothing to install on the computer.</span></a>
+  <a href="app/"><strong>Send pictures</strong><span>Open it in Chrome or Edge, with the FM-1 running Mocky and connected by USB. Then drop, choose or paste a picture.</span></a>
+  <a href="install/"><strong>Install</strong><span>Connect your FM-1 by USB and install from Chrome or Edge. There's nothing to install on your computer.</span></a>
   <a href="firmware/__PKG__"><strong>Download __PKG__</strong><span>For the command-line installer: <code>python3 tools/fm1_install.py __PKG__</code></span></a>
-  <a href="__REPO__"><strong>Source</strong><span>GitHub, GPL-3.0. Built on Felucca by Hügelton Instruments.</span></a>
+  <a href="__REPO__"><strong>Source</strong><span>On GitHub under GPL-3.0. Built on Felucca by Hügelton Instruments.</span></a>
 </nav>
 
 <h2>Sending</h2>
 <table>
-<tr><th scope="row">Any size</th><td>Pictures are scaled to the screen's 240 × 240: Fit (with a colour behind), Fill (cropped), Stretch, or 1:1. A picture made at 240 × 240 arrives pixel for pixel.</td></tr>
-<tr><th scope="row">True colours</th><td>The page shows what the screen will show (the screen's 16-bit colour). Dither for photos and gradients, if you like.</td></tr>
-<tr><th scope="row">Keep</th><td>Kept pictures stay on the FM-1 when it's switched off: 276 KB of room, up to 64 pictures. A flat mockup takes a few KB, a photo about 116 KB.</td></tr>
-<tr><th scope="row">Several</th><td>Drop several pictures at once and they're sent in order: a whole flow, ready to step through.</td></tr>
-<tr><th scope="row">Watch a file</th><td>Pick a file and the page sends it again each time it changes. Export from your design tool over the same file and the FM-1 follows.</td></tr>
+<tr><th scope="row">Any size</th><td>Send a picture of any size, and the page scales it to the screen's 240 × 240. Choose Fit (with a color behind it), Fill (cropped), Stretch or 1:1. A picture made at 240 × 240 arrives pixel for pixel.</td></tr>
+<tr><th scope="row">True colors</th><td>The page shows you what the screen will show, in the screen's 16-bit color. Turn on Dither for photos and gradients, if you like.</td></tr>
+<tr><th scope="row">Keep</th><td>Pictures you keep stay on the FM-1 when you switch it off. There's 276 KB of room, for up to 64 pictures. A flat mockup takes a few KB, and a photo about 116 KB.</td></tr>
+<tr><th scope="row">Several</th><td>Drop several pictures at once, and the page sends them in order. You get a whole flow, ready to step through.</td></tr>
+<tr><th scope="row">Watch a file</th><td>Pick a file, and the page sends it again each time it changes. Export from your design tool over the same file, and the FM-1 follows along.</td></tr>
 </table>
 
 <h2>On the FM-1</h2>
 <table>
-<tr><th scope="row">White keys</th><td>Pictures 1–16. Their lights show which are kept; the one on the screen blinks.</td></tr>
-<tr><th scope="row">OCT− · OCT+</th><td>Previous, next. SELECT, ALGORITHM, PRESETS and KNOB 1–3 step too.</td></tr>
-<tr><th scope="row">PLAY</th><td>Slideshow on and off. KNOB 4 sets the pace, 1 to 30 seconds a picture.</td></tr>
-<tr><th scope="row">SAVE</th><td>Keeps a picture sent without "Keep" (SAVE blinks while there is one).</td></tr>
-<tr><th scope="row">HOME</th><td>Which picture this is, and how much room is left.</td></tr>
+<tr><th scope="row">White keys</th><td>Show pictures 1–16. A key lights when its picture is kept, and the one on the screen blinks.</td></tr>
+<tr><th scope="row">OCT− · OCT+</th><td>Step to the previous or next picture. SELECT, ALGORITHM, PRESETS and KNOB 1–3 step through them too.</td></tr>
+<tr><th scope="row">PLAY</th><td>Starts and stops the slideshow. Turn KNOB 4 to set the pace, from 1 to 30 seconds a picture.</td></tr>
+<tr><th scope="row">SAVE</th><td>Keeps a picture you sent without "Keep". SAVE blinks while there's one to keep.</td></tr>
+<tr><th scope="row">HOME</th><td>Tells you which picture this is, and how much room is left.</td></tr>
 </table>
-<p>Mocky starts on the picture you looked at last.</p>
+<p>When you switch it on, Mocky starts on the picture you looked at last.</p>
 
 <h2>Screen reader</h2>
 <p>Mocky works with the <a href="https://charlesvestal.github.io/fm1-reader/">FM-1 Screen Reader</a>. A picture
-can't be put into words, but Mocky tells the reader everything else it shows: which picture is on the screen
-("picture 3 of 7"), a new picture arriving and whether it was kept, the slideshow, the room left, and what each
-button did. Open the reader in Chrome with the FM-1 plugged in; it speaks with its own voice, or hands the text to
-your computer's screen reader.</p>
+can't be put into words, but Mocky tells the reader everything else it shows. You'll hear which picture is on the
+screen ("picture 3 of 7"), when a new picture arrives and whether it was kept, the slideshow, the room left, and
+what each button did. Plug in the FM-1 and open the reader in Chrome. It speaks with its own voice, or hands the
+text to your computer's screen reader.</p>
 
 <p class="small">To go back to the official
-firmware, use the installer's "Back to the stock firmware", or M-VAVE's updater, M-UPGRADE, from
-<a href="https://www.m-vave.com/download">m-vave.com/download</a> (M-UPGRADE 3.11 finds the current version, not
-older ones). M-VAVE and FM-1 are trademarks of their owners. Mocky is not affiliated with them.</p>
+firmware, use "Back to the stock firmware" in the installer, or M-VAVE's own updater, M-UPGRADE, from
+<a href="https://www.m-vave.com/download">m-vave.com/download</a>. M-UPGRADE 3.11 finds the current version of
+Mocky, but not older ones. M-VAVE and FM-1 are trademarks of their owners. Mocky is not affiliated with them.</p>
 </main>
 </body>
 </html>
