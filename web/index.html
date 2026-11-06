@@ -101,7 +101,7 @@
           </div></div>
         <div class="row"><label class="k" for="bg">Behind it</label><input type="color" id="bg" value="#000000" aria-describedby="bgnote">
           <span class="small" id="bgnote">where the picture does not reach</span></div>
-        <div class="row"><span class="k">Colour</span>
+        <div class="row"><span class="k">Color</span>
           <label class="check"><input type="checkbox" id="dither"> Dither (for photos and gradients)</label></div>
         <p class="small" id="meta">No picture yet.</p>
       </section>
@@ -236,7 +236,7 @@ function buttons() {
     off('next', !idle || n < 1);
     off('clear', !idle || n < 1);
     $('dot').classList.toggle('on', on);
-    // the background colour only shows with Fit and 1:1
+    // the background color only shows with Fit and 1:1
     $('bg').disabled = !(state.fit === 'contain' || state.fit === 'none');
     $('bgnote').textContent = $('bg').disabled ? 'only with Fit and 1:1: Fill and Stretch cover the screen'
                                                : 'where the picture does not reach';
